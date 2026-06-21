@@ -1,5 +1,5 @@
 import { CARDS } from '../data/cards.js'
-import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward } from '../data/constants.js'
+import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG } from '../data/constants.js'
 import { Storage } from './storage.js'
 
 export function getAllCards() {
@@ -252,4 +252,68 @@ export function saveDailyFortuneResult(result) {
   Storage.addToCollection(card.id, isReversed)
   Storage.updateStats(card.rarity, isReversed)
   return Storage.saveDailyFortune(card.id, isReversed, reading)
+}
+
+export function drawThemeCards(theme, spreadTypeId) {
+  const themeConfig = THEME_CONFIG[theme]
+  if (!themeConfig) throw new Error(`Unknown theme: ${theme}`)
+
+  const spreadType = themeConfig.spreadTypes.find(s => s.id === spreadTypeId)
+  if (!spreadType) throw new Error(`Unknown spread type: ${spreadTypeId}`)
+
+  const cardCount = spreadType.cardCount
+  const drawnIds = new Set()
+  const results = []
+
+  for (let i = 0; i < cardCount; i++) {
+    let card
+    let attempts = 0
+    do {
+      const draw = drawSingleCard()
+      card = draw
+      attempts++
+    } while (drawnIds.has(card.card.id) && attempts < 20)
+
+    drawnIds.add(card.card.id)
+    results.push({
+      ...card,
+      position: spreadType.positions[i]
+    })
+  }
+
+  return results
+}
+
+export function saveThemeDivinationResult(theme, spreadTypeId, results, question = '') {
+  results.forEach(({ card, isReversed }) => {
+    Storage.addToCollection(card.id, isReversed)
+    Storage.updateStats(card.rarity, isReversed)
+  })
+
+  const record = {
+    theme,
+    spreadTypeId,
+    question,
+    cards: results.map(({ card, isReversed, position }) => ({
+      cardId: card.id,
+      isReversed,
+      position,
+      title: isReversed ? card.reversed.title : card.upright.title,
+      meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
+      advice: isReversed ? card.reversed.advice : card.upright.advice,
+      fortune: isReversed ? card.reversed.fortune : card.upright.fortune
+    }))
+  }
+
+  checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
+
+  return Storage.addThemeDivinationRecord(record)
+}
+
+export function getThemeConfig(theme) {
+  return THEME_CONFIG[theme] || null
+}
+
+export function getAllThemes() {
+  return Object.values(THEME_CONFIG)
 }

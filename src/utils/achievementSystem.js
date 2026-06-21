@@ -14,6 +14,8 @@ import {
 } from '../data/achievements.js'
 import { CARDS } from '../data/cards.js'
 import { THEME_CONFIG } from '../data/constants.js'
+import { STORY_LINES } from '../data/storyEvents.js'
+import { getCompletedStories, getStoryEndingCounts } from './storySystem.js'
 
 const unlockedStore = writable({})
 const notifyStore = writable(null)
@@ -177,6 +179,8 @@ function getContext() {
   const dailyFortune = Storage.getDailyFortune()
   const dailyHistory = Storage.getDailyFortuneHistory()
   const themeHistory = Storage.getThemeDivinationHistory()
+  const storyProgress = Storage.getStoryProgress()
+  const storyHistory = Storage.getStoryHistory()
 
   const uniqueCards = Object.keys(collection).length
   const totalCards = CARDS.length
@@ -205,6 +209,9 @@ function getContext() {
   })
   allSpreads.push('draw_single', 'draw_three', 'daily')
 
+  const completedStories = getCompletedStories()
+  const endingCounts = getStoryEndingCounts()
+
   return {
     stats,
     collection,
@@ -216,7 +223,11 @@ function getContext() {
     usedThemes,
     usedSpreads,
     allThemes,
-    allSpreads
+    allSpreads,
+    storyProgress,
+    storyHistory,
+    completedStories,
+    endingCounts
   }
 }
 
@@ -254,6 +265,18 @@ function checkCondition(achievement, ctx) {
 
     case 'all_spreads':
       return ctx.allSpreads.every(s => ctx.usedSpreads.has(s))
+
+    case 'story_ending':
+      return ctx.endingCounts[condition.endingType] >= condition.target
+
+    case 'story_completed':
+      return ctx.completedStories.includes(condition.storyId)
+
+    case 'stories_count':
+      return ctx.completedStories.length >= condition.target
+
+    case 'all_stories':
+      return STORY_LINES.every(s => ctx.completedStories.includes(s.id))
 
     default:
       return false
@@ -301,6 +324,8 @@ export function checkAchievementsAfterAction(actionType, payload = {}) {
         return ['daily_draws', 'consecutive_days', 'unique_cards', 'unique_cards_ratio', 'all_spreads'].includes(a.condition.type)
       case 'theme':
         return ['total_draws', 'legendary_count', 'reversed_draws', 'unique_cards', 'unique_cards_ratio', 'all_themes', 'all_spreads'].includes(a.condition.type)
+      case 'story':
+        return ['story_ending', 'story_completed', 'stories_count', 'all_stories'].includes(a.condition.type)
       default:
         return true
     }
@@ -406,6 +431,37 @@ export function getAchievementProgress(achievement) {
         current: 0,
         target: 1,
         percent: 0
+      }
+
+    case 'story_ending':
+      const endingCount = ctx.endingCounts[condition.endingType] || 0
+      return {
+        current: Math.min(endingCount, condition.target),
+        target: condition.target,
+        percent: Math.min(100, Math.round((endingCount / condition.target) * 100))
+      }
+
+    case 'story_completed':
+      const isCompleted = ctx.completedStories.includes(condition.storyId)
+      return {
+        current: isCompleted ? 1 : 0,
+        target: 1,
+        percent: isCompleted ? 100 : 0
+      }
+
+    case 'stories_count':
+      return {
+        current: Math.min(ctx.completedStories.length, condition.target),
+        target: condition.target,
+        percent: Math.min(100, Math.round((ctx.completedStories.length / condition.target) * 100))
+      }
+
+    case 'all_stories':
+      const totalStories = STORY_LINES.length
+      return {
+        current: ctx.completedStories.length,
+        target: totalStories,
+        percent: totalStories > 0 ? Math.round((ctx.completedStories.length / totalStories) * 100) : 0
       }
 
     default:

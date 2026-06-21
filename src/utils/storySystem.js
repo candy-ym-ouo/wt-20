@@ -10,7 +10,7 @@ import {
 } from '../data/storyEvents.js'
 import { CARDS } from '../data/cards.js'
 import { CARD_CATEGORY, CARD_RARITY, RARITY_CONFIG } from '../data/constants.js'
-import { triggerHiddenAchievement } from './achievementSystem.js'
+import { triggerHiddenAchievement, checkAchievementsAfterAction } from './achievementSystem.js'
 
 const storyNotifyStore = writable(null)
 const activeStoriesStore = writable([])
@@ -378,6 +378,8 @@ export function makeChoice(storyId, chapterId, choiceId) {
 
     loadActiveStories()
 
+    checkAchievementsAfterAction('story')
+
     return {
       story,
       chapter: nextChapter,
@@ -527,11 +529,12 @@ export function onDrawComplete() {
 
 export function getCompletedStories() {
   const progress = Storage.getStoryProgress()
-  return Object.values(progress).filter(p => p.status === STORY_STATUS.COMPLETED)
+  return Object.keys(progress).filter(key => progress[key].status === STORY_STATUS.COMPLETED)
 }
 
 export function getStoryEndingCounts() {
-  const completed = getCompletedStories()
+  const progress = Storage.getStoryProgress()
+  const completedStories = Object.values(progress).filter(p => p.status === STORY_STATUS.COMPLETED)
   const counts = {
     good: 0,
     neutral: 0,
@@ -541,7 +544,7 @@ export function getStoryEndingCounts() {
     legendary: 0
   }
   
-  completed.forEach(p => {
+  completedStories.forEach(p => {
     if (p.endingType && counts[p.endingType] !== undefined) {
       counts[p.endingType]++
     }
