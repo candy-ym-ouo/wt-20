@@ -6,7 +6,10 @@ import {
   CATEGORY_CONFIG,
   ACHIEVEMENT_CATEGORY,
   ACHIEVEMENT_TIER,
+  REWARD_TYPE,
   getTotalPoints,
+  getMaxPoints,
+  getUnlockedTitles,
   getAchievementById
 } from '../data/achievements.js'
 import { CARDS } from '../data/cards.js'
@@ -14,7 +17,8 @@ import { THEME_CONFIG } from '../data/constants.js'
 
 const unlockedStore = writable({})
 const notifyStore = writable(null)
-const unlockedTitles = writable([])
+const titlesStore = writable([])
+const pointsStore = writable(0)
 
 let initialized = false
 let notifyTimeout = null
@@ -27,24 +31,13 @@ function init() {
 
   const unlocked = Storage.getAchievements()
   unlockedStore.set(unlocked)
-  updateTitles(unlocked)
+  updateDerivedData(unlocked)
 }
 
-function updateTitles(unlocked) {
+function updateDerivedData(unlocked) {
   const unlockedIds = Object.keys(unlocked)
-  const titles = []
-  unlockedIds.forEach(id => {
-    const ach = getAchievementById(id)
-    if (ach && ach.reward && ach.reward.type === 'title') {
-      titles.push({
-        id: ach.id,
-        value: ach.reward.value,
-        name: ach.revealedName || ach.name,
-        tier: ach.tier
-      })
-    }
-  })
-  unlockedTitles.set(titles)
+  titlesStore.set(getUnlockedTitles(unlockedIds))
+  pointsStore.set(getTotalPoints(unlockedIds))
 }
 
 export const unlockedAchievements = {
@@ -61,52 +54,63 @@ export const achievementNotify = {
   }
 }
 
-export const unlockedAchievementTitles = {
+export const achievementTitles = {
   subscribe: (run) => {
     init()
-    return unlockedTitles.subscribe(run)
+    return titlesStore.subscribe(run)
   }
 }
 
-export const achievementStats = derived(unlockedAchievements, ($unlocked) => {
-  const unlockedIds = Object.keys($unlocked)
-  const totalCount = ACHIEVEMENTS.length
-  const unlockedCount = unlockedIds.length
-  const points = getTotalPoints(unlockedIds)
-  const maxPoints = ACHIEVEMENTS.reduce((sum, a) => sum + TIER_CONFIG[a.tier].points, 0)
-
-  const byCategory = {}
-  Object.keys(CATEGORY_CONFIG).forEach(cat => {
-    const catAchievements = ACHIEVEMENTS.filter(a => a.category === cat)
-    const catUnlocked = catAchievements.filter(a => unlockedIds.includes(a.id))
-    byCategory[cat] = {
-      total: catAchievements.length,
-      unlocked: catUnlocked.length,
-      percent: catAchievements.length > 0 ? Math.round((catUnlocked.length / catAchievements.length) * 100) : 0
-    }
-  })
-
-  const byTier = {}
-  Object.keys(TIER_CONFIG).forEach(tier => {
-    const tierAchievements = ACHIEVEMENTS.filter(a => a.tier === tier)
-    const tierUnlocked = tierAchievements.filter(a => unlockedIds.includes(a.id))
-    byTier[tier] = {
-      total: tierAchievements.length,
-      unlocked: tierUnlocked.length
-    }
-  })
-
-  return {
-    totalCount,
-    unlockedCount,
-    percent: totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0,
-    points,
-    maxPoints,
-    pointsPercent: maxPoints > 0 ? Math.round((points / maxPoints) * 100) : 0,
-    byCategory,
-    byTier
+export const achievementPoints = {
+  subscribe: (run) => {
+    init()
+    return pointsStore.subscribe(run)
   }
-})
+}
+
+export const achievementStats = derived(
+  [unlockedAchievements, achievementPoints],
+  ([$unlocked, $points]) => {
+    const unlockedIds = Object.keys($unlocked)
+    const totalCount = ACHIEVEMENTS.length
+    const unlockedCount = unlockedIds.length
+    const maxPoints = getMaxPoints()
+
+    const byCategory = {}
+    Object.keys(CATEGORY_CONFIG).forEach(cat => {
+      const catAchievements = ACHIEVEMENTS.filter(a => a.category === cat)
+      const catUnlocked = catAchievements.filter(a => unlockedIds.includes(a.id))
+      byCategory[cat] = {
+        total: catAchievements.length,
+        unlocked: catUnlocked.length,
+        percent: catAchievements.length > 0 ? Math.round((catUnlocked.length / catAchievements.length) * 100) : 0
+      }
+    })
+
+    const byTier = {}
+    Object.keys(TIER_CONFIG).forEach(tier => {
+      const tierAchievements = ACHIEVEMENTS.filter(a => a.tier === tier)
+      const tierUnlocked = tierAchievements.filter(a => unlockedIds.includes(a.id))
+      byTier[tier] = {
+        total: tierAchievements.length,
+        unlocked: tierUnlocked.length
+      }
+    })
+
+    const pointsPercent = maxPoints > 0 ? Math.round(($points / maxPoints) * 100) : 0
+
+    return {
+      totalCount,
+      unlockedCount,
+      percent: totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0,
+      points: $points,
+      maxPoints,
+      pointsPercent,
+      byCategory,
+      byTier
+    }
+  }
+)
 
 function showNotification(achievement) {
   if (notifyTimeout) {
@@ -144,7 +148,7 @@ function unlockAchievement(achievementId) {
 
   const updated = Storage.getAchievements()
   unlockedStore.set(updated)
-  updateTitles(updated)
+  updateDerivedData(updated)
 
   showNotification(achievement)
 
@@ -413,5 +417,5 @@ export function refreshAchievements() {
   init()
   const unlocked = Storage.getAchievements()
   unlockedStore.set(unlocked)
-  updateTitles(unlocked)
+  updateDerivedData(unlocked)
 }

@@ -442,7 +442,7 @@ export const CARDS = [
       trigger: 'legendary_draw',
       title: '【隐藏事件】恒星协议解锁',
       description: '检测到传说级命运交汇！你触碰了恒星级别的好运，系统已记录这一历史性时刻。',
-      reward: { type: 'unlock', value: 'achievement_hidden_legendary_lucky' }
+      reward: { type: 'unlock', value: 'achievement_hidden_sun_touched' }
     }
   },
   {

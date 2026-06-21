@@ -5,12 +5,13 @@
     ACHIEVEMENT_CATEGORY,
     CATEGORY_CONFIG,
     TIER_CONFIG,
-    ACHIEVEMENT_TIER
+    ACHIEVEMENT_TIER,
+    REWARD_TYPE
   } from '../data/achievements.js'
   import {
     unlockedAchievements,
     achievementStats,
-    unlockedAchievementTitles,
+    achievementTitles,
     getAchievementProgress,
     refreshAchievements,
     checkAllAchievements
@@ -105,6 +106,17 @@
     return getAchievementProgress(ach)
   }
 
+  function getRewardLabel(ach) {
+    if (!ach.reward) return ''
+    if (ach.reward.type === REWARD_TYPE.POINTS) {
+      return `+${ach.reward.value} 点`
+    }
+    if (ach.reward.type === REWARD_TYPE.TITLE) {
+      return `👑 ${ach.reward.value}`
+    }
+    return ''
+  }
+
   function handleRefresh() {
     refreshAchievements()
     checkAllAchievements()
@@ -135,11 +147,11 @@
     </div>
   </div>
 
-  {#if $unlockedAchievementTitles.length > 0}
+  {#if $achievementTitles.length > 0}
     <div class="titles-section">
       <div class="section-title">🏆 已获称号</div>
       <div class="titles-list">
-        {#each $unlockedAchievementTitles as title}
+        {#each $achievementTitles as title}
           <span class="title-badge tier-{title.tier}" style="--tier-color: {TIER_CONFIG[title.tier].color};">
             👑 {title.value}
           </span>
@@ -219,8 +231,8 @@
           <div class="card-icon">{displayIcon(achievement)}</div>
           <div class="card-name">{displayName(achievement)}</div>
           <div class="card-tier">{TIER_CONFIG[achievement.tier].label}</div>
-          {#if achievement.reward?.type === 'title'}
-            <div class="card-reward">👑 {achievement.reward.value}</div>
+          {#if achievement.reward}
+            <div class="card-reward">{getRewardLabel(achievement)}</div>
           {/if}
         </div>
       {:else}
@@ -237,6 +249,8 @@
               <div class="mini-progress-fill" style="width: {getProgress(achievement).percent}%;"></div>
             </div>
             <div class="mini-progress-text mono">{getProgress(achievement).current}/{getProgress(achievement).target}</div>
+          {:else if achievement.reward}
+            <div class="card-reward locked-reward">{getRewardLabel(achievement)}</div>
           {/if}
         </div>
       {/if}
@@ -594,6 +608,11 @@
     border-top: 1px dashed rgba(255, 213, 79, 0.3);
     position: relative;
     z-index: 1;
+  }
+
+  .card-reward.locked-reward {
+    color: var(--text-dim);
+    border-top-color: rgba(255, 255, 255, 0.1);
   }
 
   .mini-progress {

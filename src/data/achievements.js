@@ -11,36 +11,31 @@ export const TIER_CONFIG = {
     label: '普通',
     color: '#8a8a9a',
     glow: '#4a4a6a',
-    borderColor: '#5a5a7a',
-    points: 10
+    borderColor: '#5a5a7a'
   },
   [ACHIEVEMENT_TIER.RARE]: {
     label: '稀有',
     color: '#4fc3f7',
     glow: '#0288d1',
-    borderColor: '#03a9f4',
-    points: 25
+    borderColor: '#03a9f4'
   },
   [ACHIEVEMENT_TIER.EPIC]: {
     label: '史诗',
     color: '#ba68c8',
     glow: '#7b1fa2',
-    borderColor: '#9c27b0',
-    points: 50
+    borderColor: '#9c27b0'
   },
   [ACHIEVEMENT_TIER.LEGENDARY]: {
     label: '传说',
     color: '#ffd54f',
     glow: '#ff8f00',
-    borderColor: '#ffc107',
-    points: 100
+    borderColor: '#ffc107'
   },
   [ACHIEVEMENT_TIER.HIDDEN]: {
     label: '隐藏',
     color: '#e040fb',
     glow: '#aa00ff',
-    borderColor: '#d500f9',
-    points: 150
+    borderColor: '#d500f9'
   }
 }
 
@@ -60,6 +55,11 @@ export const CATEGORY_CONFIG = {
   [ACHIEVEMENT_CATEGORY.SPECIAL]: { label: '特殊', icon: '⭐', color: '#ff5252' }
 }
 
+export const REWARD_TYPE = {
+  POINTS: 'points',
+  TITLE: 'title'
+}
+
 export const ACHIEVEMENTS = [
   {
     id: 'achievement_first_draw',
@@ -69,9 +69,9 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.COMMON,
     reward: {
-      type: 'title',
-      value: '新手预言者',
-      description: '解锁称号：新手预言者'
+      type: REWARD_TYPE.POINTS,
+      value: 10,
+      description: '获得10成就点数'
     },
     condition: {
       type: 'total_draws',
@@ -86,9 +86,9 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.COMMON,
     reward: {
-      type: 'points',
-      value: 50,
-      description: '获得50成就点数'
+      type: REWARD_TYPE.POINTS,
+      value: 30,
+      description: '获得30成就点数'
     },
     condition: {
       type: 'total_draws',
@@ -103,9 +103,9 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.RARE,
     reward: {
-      type: 'points',
-      value: 100,
-      description: '获得100成就点数'
+      type: REWARD_TYPE.POINTS,
+      value: 80,
+      description: '获得80成就点数'
     },
     condition: {
       type: 'total_draws',
@@ -120,7 +120,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.EPIC,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '数据行者',
       description: '解锁称号：数据行者'
     },
@@ -137,7 +137,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.LEGENDARY,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '量子先知',
       description: '解锁称号：量子先知'
     },
@@ -154,9 +154,9 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.EPIC,
     reward: {
-      type: 'points',
-      value: 200,
-      description: '获得200成就点数'
+      type: REWARD_TYPE.POINTS,
+      value: 150,
+      description: '获得150成就点数'
     },
     condition: {
       type: 'legendary_count',
@@ -171,7 +171,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.LEGENDARY,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '命运宠儿',
       description: '解锁称号：命运宠儿'
     },
@@ -188,9 +188,9 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DRAW,
     tier: ACHIEVEMENT_TIER.RARE,
     reward: {
-      type: 'points',
-      value: 150,
-      description: '获得150成就点数'
+      type: REWARD_TYPE.POINTS,
+      value: 100,
+      description: '获得100成就点数'
     },
     condition: {
       type: 'reversed_draws',
@@ -205,7 +205,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.COLLECTION,
     tier: ACHIEVEMENT_TIER.COMMON,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 50,
       description: '获得50成就点数'
     },
@@ -222,7 +222,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.COLLECTION,
     tier: ACHIEVEMENT_TIER.RARE,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 200,
       description: '获得200成就点数'
     },
@@ -239,7 +239,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.COLLECTION,
     tier: ACHIEVEMENT_TIER.LEGENDARY,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '全知者',
       description: '解锁称号：全知者'
     },
@@ -256,7 +256,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DAILY,
     tier: ACHIEVEMENT_TIER.COMMON,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 20,
       description: '获得20成就点数'
     },
@@ -273,7 +273,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DAILY,
     tier: ACHIEVEMENT_TIER.RARE,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 150,
       description: '获得150成就点数'
     },
@@ -290,7 +290,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DAILY,
     tier: ACHIEVEMENT_TIER.EPIC,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '命运掌控者',
       description: '解锁称号：命运掌控者'
     },
@@ -307,7 +307,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.DAILY,
     tier: ACHIEVEMENT_TIER.LEGENDARY,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '永恒觉醒者',
       description: '解锁称号：永恒觉醒者'
     },
@@ -319,7 +319,7 @@ export const ACHIEVEMENTS = [
   {
     id: 'achievement_hidden_neon_lovers',
     name: '???',
-    description: '触发隐藏事件：霓虹恋人的秘密。',
+    description: '???',
     icon: '❓',
     revealedIcon: '💕',
     revealedName: '霓虹之恋',
@@ -328,7 +328,7 @@ export const ACHIEVEMENTS = [
     tier: ACHIEVEMENT_TIER.HIDDEN,
     isHidden: true,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '霓虹恋人',
       description: '解锁隐藏称号：霓虹恋人'
     },
@@ -340,7 +340,7 @@ export const ACHIEVEMENTS = [
   {
     id: 'achievement_hidden_cyber_world',
     name: '???',
-    description: '触发隐藏事件：赛博世界的终极奥秘。',
+    description: '???',
     icon: '❓',
     revealedIcon: '🌍',
     revealedName: '世界之主',
@@ -349,7 +349,7 @@ export const ACHIEVEMENTS = [
     tier: ACHIEVEMENT_TIER.HIDDEN,
     isHidden: true,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '世界之主',
       description: '解锁隐藏称号：世界之主'
     },
@@ -361,7 +361,7 @@ export const ACHIEVEMENTS = [
   {
     id: 'achievement_hidden_ghost_protocol',
     name: '???',
-    description: '触发隐藏事件：幽灵协议激活。',
+    description: '???',
     icon: '❓',
     revealedIcon: '👻',
     revealedName: '幽灵行者',
@@ -370,7 +370,7 @@ export const ACHIEVEMENTS = [
     tier: ACHIEVEMENT_TIER.HIDDEN,
     isHidden: true,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '幽灵行者',
       description: '解锁隐藏称号：幽灵行者'
     },
@@ -382,7 +382,7 @@ export const ACHIEVEMENTS = [
   {
     id: 'achievement_hidden_legendary_lucky',
     name: '???',
-    description: '触发隐藏事件：传说级幸运降临。',
+    description: '???',
     icon: '❓',
     revealedIcon: '🍀',
     revealedName: '天选之人',
@@ -391,13 +391,34 @@ export const ACHIEVEMENTS = [
     tier: ACHIEVEMENT_TIER.HIDDEN,
     isHidden: true,
     reward: {
-      type: 'title',
+      type: REWARD_TYPE.TITLE,
       value: '天选之人',
       description: '解锁隐藏称号：天选之人'
     },
     condition: {
       type: 'hidden_event',
       target: 'achievement_hidden_legendary_lucky'
+    }
+  },
+  {
+    id: 'achievement_hidden_sun_touched',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '☀️',
+    revealedName: '恒星之子',
+    revealedDescription: '恒星协议已解锁，你被赋予了太阳般的光辉。在赛博宇宙中，你就是最耀眼的那颗星。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '恒星之子',
+      description: '解锁隐藏称号：恒星之子'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_hidden_sun_touched'
     }
   },
   {
@@ -408,7 +429,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.SPECIAL,
     tier: ACHIEVEMENT_TIER.RARE,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 150,
       description: '获得150成就点数'
     },
@@ -425,7 +446,7 @@ export const ACHIEVEMENTS = [
     category: ACHIEVEMENT_CATEGORY.SPECIAL,
     tier: ACHIEVEMENT_TIER.EPIC,
     reward: {
-      type: 'points',
+      type: REWARD_TYPE.POINTS,
       value: 250,
       description: '获得250成就点数'
     },
@@ -446,9 +467,29 @@ export function getAchievementsByCategory(category) {
 
 export function getTotalPoints(unlockedIds) {
   return ACHIEVEMENTS.reduce((sum, a) => {
-    if (unlockedIds.includes(a.id)) {
-      return sum + TIER_CONFIG[a.tier].points
+    if (unlockedIds.includes(a.id) && a.reward && a.reward.type === REWARD_TYPE.POINTS) {
+      return sum + a.reward.value
     }
     return sum
   }, 0)
+}
+
+export function getMaxPoints() {
+  return ACHIEVEMENTS.reduce((sum, a) => {
+    if (a.reward && a.reward.type === REWARD_TYPE.POINTS) {
+      return sum + a.reward.value
+    }
+    return sum
+  }, 0)
+}
+
+export function getUnlockedTitles(unlockedIds) {
+  return ACHIEVEMENTS
+    .filter(a => unlockedIds.includes(a.id) && a.reward && a.reward.type === REWARD_TYPE.TITLE)
+    .map(a => ({
+      id: a.id,
+      name: a.revealedName || a.name,
+      value: a.reward.value,
+      tier: a.tier
+    }))
 }
