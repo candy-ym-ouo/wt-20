@@ -8,7 +8,8 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
   DECKS: 'cyber_divination_decks',
-  THEME_ALBUMS: 'cyber_divination_theme_albums'
+  THEME_ALBUMS: 'cyber_divination_theme_albums',
+  SHARE_HISTORY: 'cyber_divination_share_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -340,5 +341,31 @@ export const Storage = {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key)
     })
+  },
+
+  getShareHistory() {
+    return safeGet(STORAGE_KEYS.SHARE_HISTORY, [])
+  },
+
+  setShareHistory(history) {
+    return safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
+  },
+
+  addShareRecord(record) {
+    const history = this.getShareHistory()
+    history.unshift({
+      ...record,
+      id: `share_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      sharedAt: Date.now()
+    })
+    if (history.length > 50) {
+      history.splice(50)
+    }
+    safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
+    return history
+  },
+
+  clearShareHistory() {
+    safeSet(STORAGE_KEYS.SHARE_HISTORY, [])
   }
 }

@@ -1,6 +1,7 @@
 <script>
   import CardDisplay from './CardDisplay.svelte'
-  import { RARITY_CONFIG } from '../data/constants.js'
+  import { RARITY_CONFIG, THEME_CONFIG } from '../data/constants.js'
+  import ShareModal from './ShareModal.svelte'
 
   export let results
   export let spreadType
@@ -8,6 +9,12 @@
   export let onDrawAgain
   export let customTitle = null
   export let spreadConfig = null
+  export let question = null
+  export let theme = null
+  export let spreadName = null
+  export let timestamp = Date.now()
+  export let recordType = null
+  export let consecutiveDays = null
 
   $: {
     if (customTitle) {
@@ -22,6 +29,7 @@
   $: isMultiSpread = spreadType === 'multi-spread' && spreadConfig
 
   let modalTitle = ''
+  let showShareModal = false
 
   function hasPosition(result) {
     return !!result.position
@@ -30,6 +38,30 @@
   function getResultByPositionId(posId) {
     return results.find(r => r.positionId === posId)
   }
+
+  function openShare() {
+    showShareModal = true
+  }
+
+  function closeShare() {
+    showShareModal = false
+  }
+
+  function goToReview() {
+    const event = new CustomEvent('navigate', { detail: 'review' })
+    window.dispatchEvent(event)
+    onClose()
+  }
+
+  $: derivedSpreadName = spreadName || (() => {
+    if (spreadType === 'single' || results.length === 1) return '单张占卜'
+    if (spreadType === 'three') return '三牌阵'
+    if (theme) {
+      const tc = THEME_CONFIG[theme]
+      return tc?.spreadTypes?.find(s => s.id === spreadType)?.name || `${results.length}牌阵`
+    }
+    return `${results.length}牌阵`
+  })()
 </script>
 
 <div class="modal-overlay" on:click|self={onClose}>
@@ -107,12 +139,35 @@
       {/each}
     </div>
 
+    <div class="action-row-secondary">
+      <button class="btn btn-block btn-yellow" on:click={openShare}>
+        📤 分享结果
+      </button>
+      <button class="btn btn-block btn-magenta" on:click={goToReview}>
+        📊 历史回顾
+      </button>
+    </div>
+
     <div class="action-row">
       <button class="btn btn-block" on:click={onClose}>关闭</button>
       <button class="btn btn-block btn-primary" on:click={onDrawAgain}>再次抽卡</button>
     </div>
   </div>
 </div>
+
+{#if showShareModal}
+  <ShareModal
+    {results}
+    {theme}
+    spreadName={derivedSpreadName}
+    {question}
+    {timestamp}
+    {recordType}
+    {consecutiveDays}
+    onClose={closeShare}
+    onGoToReview={goToReview}
+  />
+{/if}
 
 <style>
   .reading-position-label {
@@ -234,5 +289,17 @@
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px dashed var(--border-glow);
+  }
+
+  .action-row-secondary {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .action-row-secondary .btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 10px 16px;
   }
 </style>
