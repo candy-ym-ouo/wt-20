@@ -4,12 +4,14 @@
   import { getCardById } from '../utils/cardSystem.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
+  import { THEME_CONFIG } from '../data/constants.js'
 
   export let initialTab = 'divination'
 
   let activeTab = initialTab
   let history = []
   let dailyHistory = []
+  let themeHistory = []
   let selectedRecord = null
   let showDetail = false
 
@@ -37,6 +39,16 @@
     dailyHistory = dailyRaw.map(record => ({
       ...record,
       _card: getCardById(record.cardId)
+    }))
+
+    const themeRaw = Storage.getThemeDivinationHistory()
+    themeHistory = themeRaw.map(record => ({
+      ...record,
+      _theme: THEME_CONFIG[record.theme],
+      _cards: record.cards.map(c => ({
+        ...c,
+        _card: getCardById(c.cardId)
+      }))
     }))
   }
 
@@ -118,9 +130,14 @@
         Storage.clearDrawHistory()
         refresh()
       }
-    } else {
+    } else if (activeTab === 'daily') {
       if (confirm('确定要清空所有每日签历史记录吗？此操作不可撤销。')) {
         Storage.clearDailyFortuneHistory()
+        refresh()
+      }
+    } else if (activeTab === 'theme') {
+      if (confirm('确定要清空所有主题占卜历史记录吗？此操作不可撤销。')) {
+        Storage.clearThemeDivinationHistory()
         refresh()
       }
     }
@@ -131,6 +148,29 @@
     window.dispatchEvent(event)
   }
 
+  function goToDivination() {
+    const event = new CustomEvent('navigate', { detail: 'divination' })
+    window.dispatchEvent(event)
+  }
+
+  function openThemeRecord(record) {
+    selectedRecord = record._cards.map(c => {
+      const card = getCardById(c.cardId)
+      return {
+        card,
+        isReversed: c.isReversed,
+        position: c.position,
+        reading: {
+          title: c.title,
+          meaning: c.meaning,
+          advice: c.advice,
+          fortune: c.fortune
+        }
+      }
+    })
+    showDetail = true
+  }
+
   onMount(() => {
     refresh()
   })
@@ -138,7 +178,7 @@
 
 <div class="header-actions">
   <h1 class="page-title" style="flex:1; text-align: left; margin: 0; font-size: 18px;">◆ 历 史 记 录 ◆</h1>
-  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0)}
+  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0)}
     <button class="btn icon-btn" on:click={clearHistory} title="清空历史">
       🗑️
     </button>
@@ -148,6 +188,9 @@
 <div class="tabs">
   <div class="tab {activeTab === 'divination' ? 'active' : ''}" on:click={() => (activeTab = 'divination')}>
     🎴 占卜记录
+  </div>
+  <div class="tab {activeTab === 'theme' ? 'active' : ''}" on:click={() => (activeTab = 'theme')}>
+    🔮 主题占卜
   </div>
   <div class="tab {activeTab === 'daily' ? 'active' : ''}" on:click={() => (activeTab = 'daily')}>
     🎐 每日命运签
@@ -189,6 +232,46 @@
               </div>
             </div>
           {/if}
+          <div class="history-time mono">{formatTime(record.timestamp)}</div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'theme'}
+  {#if themeHistory.length === 0}
+    <div class="empty-state">
+      <div class="empty-state-icon">🔮</div>
+      <div class="empty-state-text">暂无主题占卜记录<br/>
+        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToDivination}>
+          🔮 去进行主题占卜
+        </button>
+      </div>
+    </div>
+  {:else}
+    <div class="history-list">
+      {#each themeHistory as record}
+        <div
+          class="history-item theme-item"
+          style="--theme-color: {record._theme?.color || '#00e5ff'}; --theme-glow: {record._theme?.glowColor || 'rgba(0, 229, 255, 0.3)'}"
+          on:click={() => openThemeRecord(record)}
+        >
+          <div class="history-symbol" style="color: var(--theme-color)">
+            {record._theme?.icon || '🔮'}
+          </div>
+          <div class="history-info">
+            <div class="history-card-name">{record._theme?.name || '主题'}占卜</div>
+            <div class="history-meta">
+              <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record.question}
+                <span class="question-preview">"{record.question}"</span>
+              {/if}
+            </div>
+            <div class="history-cards">
+              {#each record._cards as c, i}
+                <span title="{c._card?.name || '未知'}" style="margin-right: 4px;">{c._card?.symbol || '?'}</span>
+              {/each}
+            </div>
+          </div>
           <div class="history-time mono">{formatTime(record.timestamp)}</div>
         </div>
       {/each}
@@ -270,5 +353,27 @@
   .daily-item:hover {
     border-color: var(--accent-yellow);
     background: linear-gradient(135deg, rgba(255, 213, 79, 0.1), var(--bg-card));
+  }
+  .theme-item {
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    border-color: var(--theme-glow);
+  }
+  .theme-item:hover {
+    border-color: var(--theme-color);
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    box-shadow: 0 0 15px var(--theme-glow);
+  }
+  .question-preview {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-style: italic;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-cards {
+    margin-top: 4px;
+    font-size: 14px;
   }
 </style>

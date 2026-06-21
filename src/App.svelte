@@ -7,14 +7,16 @@
   import HistoryPage from './pages/HistoryPage.svelte'
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
+  import DivinationPage from './pages/DivinationPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
 
-  let currentPage = 'daily'
+  let currentPage = 'divination'
   let historyInitialTab = 'divination'
   let hiddenEvent = null
   let glitchClass = ''
 
   const PAGES = [
+    { id: 'divination', icon: '🔮', label: '占卜' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
@@ -61,7 +63,9 @@
 
 <div id="app-container" class="{glitchClass}">
   <div class="page-container">
-    {#if currentPage === 'daily'}
+    {#if currentPage === 'divination'}
+      <DivinationPage />
+    {:else if currentPage === 'daily'}
       <DailyFortunePage />
     {:else if currentPage === 'draw'}
       <DrawPage />

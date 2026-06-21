@@ -7,6 +7,8 @@
   let collection = {}
   let achievements = {}
   let drawHistory = []
+  let themeHistory = []
+  let dailyHistory = []
   let settings = {}
 
   let showExportSuccess = false
@@ -23,6 +25,8 @@
     collection = Storage.getCollection()
     achievements = Storage.getAchievements()
     drawHistory = Storage.getDrawHistory()
+    themeHistory = Storage.getThemeDivinationHistory()
+    dailyHistory = Storage.getDailyFortuneHistory()
     settings = Storage.getSettings()
   }
 
@@ -136,10 +140,14 @@
           '⚠ 导入将覆盖当前所有存档数据\n\n' +
           `当前数据：\n` +
           `  抽卡次数：${stats?.totalDraws || 0}\n` +
+          `  主题占卜：${themeHistory.length || 0}\n` +
+          `  每日签记录：${dailyHistory.length || 0}\n` +
           `  收集卡牌：${getCollectedCount()}/${CARDS.length}\n` +
           `  成就数量：${getAchievementCount()}\n\n` +
           `待导入数据：\n` +
           `  抽卡次数：${data.stats?.totalDraws || 0}\n` +
+          `  主题占卜：${data.themeDivinationHistory?.length || 0}\n` +
+          `  每日签记录：${data.dailyFortuneHistory?.length || 0}\n` +
           `  收集卡牌：${data.collection ? Object.keys(data.collection).length : 0}/${CARDS.length}\n` +
           `  成就数量：${data.achievements ? Object.keys(data.achievements).length : 0}\n\n` +
           `确定要导入并覆盖吗？此操作不可撤销。`
@@ -227,7 +235,15 @@
     </div>
     <div class="stat-card">
       <div class="stat-value">{drawHistory.length}</div>
-      <div class="stat-label">历史记录</div>
+      <div class="stat-label">抽卡记录</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color: #e040fb;">{themeHistory.length}</div>
+      <div class="stat-label">主题占卜</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color: #ffd54f;">{dailyHistory.length}</div>
+      <div class="stat-label">每日签记录</div>
     </div>
   </div>
 
@@ -344,7 +360,9 @@
         </p>
         <ul class="confirm-list">
           <li>🎴 {stats.totalDraws || 0} 条抽卡记录</li>
-          <li>📚 {getCollectedCount()} 张收藏卡牌数据</li>
+          <li>� {themeHistory.length || 0} 条主题占卜记录</li>
+          <li>🎐 {dailyHistory.length || 0} 条每日签记录</li>
+          <li>�📚 {getCollectedCount()} 张收藏卡牌数据</li>
           <li>🏆 {getAchievementCount()} 个成就</li>
           <li>⚙️ 所有个性化设置</li>
         </ul>

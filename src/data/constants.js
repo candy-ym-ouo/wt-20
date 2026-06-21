@@ -80,3 +80,51 @@ export function getNextReward(days) {
   }
   return null
 }
+
+export const DIVINATION_THEMES = {
+  LOVE: 'love',
+  CAREER: 'career',
+  WEALTH: 'wealth'
+}
+
+export const THEME_CONFIG = {
+  [DIVINATION_THEMES.LOVE]: {
+    id: 'love',
+    name: '情感',
+    icon: '💕',
+    color: '#e040fb',
+    glowColor: 'rgba(224, 64, 251, 0.3)',
+    description: '探索爱情与人际关系的奥秘',
+    spreadTypes: [
+      { id: 'single', name: '单牌指引', positions: ['当下指引'], cardCount: 1 },
+      { id: 'three-love', name: '感情三牌', positions: ['过去', '现在', '未来'], cardCount: 3 },
+      { id: 'relationship', name: '关系牌阵', positions: ['你的状态', '对方状态', '关系现状', '建议'], cardCount: 4 }
+    ]
+  },
+  [DIVINATION_THEMES.CAREER]: {
+    id: 'career',
+    name: '事业',
+    icon: '💼',
+    color: '#00e5ff',
+    glowColor: 'rgba(0, 229, 255, 0.3)',
+    description: '洞察工作与职业发展方向',
+    spreadTypes: [
+      { id: 'single', name: '单牌指引', positions: ['当下指引'], cardCount: 1 },
+      { id: 'three-career', name: '事业三牌', positions: ['现状', '挑战', '机遇'], cardCount: 3 },
+      { id: 'career-path', name: '事业牌阵', positions: ['当前状态', '障碍', '建议', '结果'], cardCount: 4 }
+    ]
+  },
+  [DIVINATION_THEMES.WEALTH]: {
+    id: 'wealth',
+    name: '财运',
+    icon: '💰',
+    color: '#ffd54f',
+    glowColor: 'rgba(255, 213, 79, 0.3)',
+    description: '探寻财富与机遇的流向',
+    spreadTypes: [
+      { id: 'single', name: '单牌指引', positions: ['当下指引'], cardCount: 1 },
+      { id: 'three-wealth', name: '财运三牌', positions: ['收入', '支出', '积累'], cardCount: 3 },
+      { id: 'wealth-flow', name: '财富牌阵', positions: ['当前财运', '潜在风险', '最佳时机', '长期趋势'], cardCount: 4 }
+    ]
+  }
+}
