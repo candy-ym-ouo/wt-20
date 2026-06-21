@@ -6,7 +6,9 @@ const STORAGE_KEYS = {
   SETTINGS: 'cyber_divination_settings',
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
-  THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history'
+  THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
+  DECKS: 'cyber_divination_decks',
+  THEME_ALBUMS: 'cyber_divination_theme_albums'
 }
 
 function safeGet(key, defaultValue) {
@@ -151,7 +153,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 2,
+      version: 3,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -159,7 +161,9 @@ export const Storage = {
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
-      settings: this.getSettings()
+      settings: this.getSettings(),
+      decks: this.getDecks(),
+      themeAlbums: this.getThemeAlbums()
     }
   },
 
@@ -173,6 +177,8 @@ export const Storage = {
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
+      if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
+      if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -272,6 +278,62 @@ export const Storage = {
 
   clearThemeDivinationHistory() {
     safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
+  },
+
+  getDecks() {
+    return safeGet(STORAGE_KEYS.DECKS, [])
+  },
+
+  saveDeck(deck) {
+    const decks = this.getDecks()
+    const existingIndex = decks.findIndex(d => d.id === deck.id)
+    if (existingIndex >= 0) {
+      decks[existingIndex] = { ...deck, updatedAt: Date.now() }
+    } else {
+      decks.unshift({
+        ...deck,
+        id: deck.id || `deck_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+    }
+    safeSet(STORAGE_KEYS.DECKS, decks)
+    return decks
+  },
+
+  deleteDeck(deckId) {
+    const decks = this.getDecks()
+    const filtered = decks.filter(d => d.id !== deckId)
+    safeSet(STORAGE_KEYS.DECKS, filtered)
+    return filtered
+  },
+
+  getThemeAlbums() {
+    return safeGet(STORAGE_KEYS.THEME_ALBUMS, [])
+  },
+
+  saveThemeAlbum(album) {
+    const albums = this.getThemeAlbums()
+    const existingIndex = albums.findIndex(a => a.id === album.id)
+    if (existingIndex >= 0) {
+      albums[existingIndex] = { ...album, updatedAt: Date.now() }
+    } else {
+      albums.unshift({
+        ...album,
+        id: album.id || `album_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+    }
+    safeSet(STORAGE_KEYS.THEME_ALBUMS, albums)
+    return albums
+  },
+
+  deleteThemeAlbum(albumId) {
+    const albums = this.getThemeAlbums()
+    const filtered = albums.filter(a => a.id !== albumId)
+    safeSet(STORAGE_KEYS.THEME_ALBUMS, filtered)
+    return filtered
   },
 
   resetAll() {

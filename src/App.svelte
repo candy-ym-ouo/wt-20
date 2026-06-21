@@ -8,6 +8,8 @@
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
   import DivinationPage from './pages/DivinationPage.svelte'
+  import DeckEditorPage from './pages/DeckEditorPage.svelte'
+  import ThemeAlbumPage from './pages/ThemeAlbumPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
 
   let currentPage = 'divination'
@@ -20,6 +22,8 @@
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
+    { id: 'decks', icon: '🃏', label: '卡组' },
+    { id: 'albums', icon: '📖', label: '主题册' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
   ]
@@ -71,6 +75,10 @@
       <DrawPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
+    {:else if currentPage === 'decks'}
+      <DeckEditorPage />
+    {:else if currentPage === 'albums'}
+      <ThemeAlbumPage />
     {:else if currentPage === 'history'}
       <HistoryPage initialTab={historyInitialTab} />
     {:else if currentPage === 'archive'}
