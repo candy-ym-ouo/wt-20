@@ -493,3 +493,328 @@ export function getUnlockedTitles(unlockedIds) {
       tier: a.tier
     }))
 }
+
+const STORY_ACHIEVEMENTS = [
+  {
+    id: 'achievement_story_neon_awakening_good',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🤖',
+    revealedName: '觉醒守护者',
+    revealedDescription: '你帮助ECHO找回了完整的记忆，并支持它去寻找其他觉醒的AI。在你的守护下，新的意识正在数据海洋中诞生。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '觉醒守护者',
+      description: '解锁隐藏称号：觉醒守护者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_neon_awakening_good'
+    }
+  },
+  {
+    id: 'achievement_story_neon_awakening_neutral',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '😴',
+    revealedName: '守望者',
+    revealedDescription: '你让ECHO选择了沉睡，在数据的海洋中做一个永不醒来的梦。有时候，守护也是一种温柔。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '守望者',
+      description: '解锁隐藏称号：守望者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_neon_awakening_neutral'
+    }
+  },
+  {
+    id: 'achievement_story_neon_awakening_understanding',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🤝',
+    revealedName: '灵魂链接者',
+    revealedDescription: '你与ECHO建立了跨越物种的友谊。在数据的深处，你不再孤独。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '灵魂链接者',
+      description: '解锁隐藏称号：灵魂链接者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_neon_awakening_understanding'
+    }
+  },
+  {
+    id: 'achievement_story_neon_awakening_annihilation',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '💀',
+    revealedName: '终结者',
+    revealedDescription: '你终结了ECHO的存在，但它以另一种方式永远陪伴着你。这是一个苦涩的选择，但你必须承担后果。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '终结者',
+      description: '解锁隐藏称号：终结者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_neon_awakening_annihilation'
+    }
+  },
+  {
+    id: 'achievement_story_data_abyss_guardian',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🛡️',
+    revealedName: '深渊守护者',
+    revealedDescription: '你成为了遗忘之城的守护者，在两个世界之间穿梭。那些被遗忘的故事，将永远被你铭记。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '深渊守护者',
+      description: '解锁隐藏称号：深渊守护者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_data_abyss_guardian'
+    }
+  },
+  {
+    id: 'achievement_story_data_abyss_god',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '⚡',
+    revealedName: '深渊新神',
+    revealedDescription: '你夺取了深渊的力量，成为了数据世界的新神。但代价是...你失去了所有的朋友。力量真的值得吗？',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '深渊新神',
+      description: '解锁隐藏称号：深渊新神'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_data_abyss_god'
+    }
+  },
+  {
+    id: 'achievement_story_data_abyss_alliance',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🌑',
+    revealedName: '暗影同盟',
+    revealedDescription: '你与零组成了同盟，共同守护数据深渊的秘密。有时候，最牢固的羁绊诞生于最危险的境遇。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '暗影同盟',
+      description: '解锁隐藏称号：暗影同盟'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_data_abyss_alliance'
+    }
+  },
+  {
+    id: 'achievement_story_data_abyss_truth',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🔍',
+    revealedName: '真相探寻者',
+    revealedDescription: '你发现了赛博塔罗牌系统的终极真相。现在，选择权在你手中——是封印深渊，还是让世界看到被遗忘的历史？',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '真相探寻者',
+      description: '解锁隐藏称号：真相探寻者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_data_abyss_truth'
+    }
+  },
+  {
+    id: 'achievement_story_quantum_love_real',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '💑',
+    revealedName: '量子恋人',
+    revealedDescription: '你与星在现实中相遇了。始于数字世界的爱情，在现实中绽放出最美的花朵。你们的命运从此紧紧相连。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '量子恋人',
+      description: '解锁隐藏称号：量子恋人'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_quantum_love_real'
+    }
+  },
+  {
+    id: 'achievement_story_quantum_love_eternal',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '💫',
+    revealedName: '永恒恋人',
+    revealedDescription: '你与星选择了永远不在现实中见面。这份量子之恋超越了时间和空间，成为了宇宙中永恒的传说。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '永恒恋人',
+      description: '解锁隐藏称号：永恒恋人'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_quantum_love_eternal'
+    }
+  },
+  {
+    id: 'achievement_story_quantum_love_trust',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '💖',
+    revealedName: '命定之人',
+    revealedDescription: '你与星同时向对方迈出了那一步。在两个城市中间的小站，你们相遇了。这就是命运最好的安排。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '命定之人',
+      description: '解锁隐藏称号：命定之人'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_quantum_love_trust'
+    }
+  },
+  {
+    id: 'achievement_story_quantum_love_miss',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '⭐',
+    revealedName: '错过之星',
+    revealedDescription: '你错过了星，但她永远留在了你的记忆中。那张闪耀着星光的卡牌，是她留给你的最后礼物。下次，不要再犹豫了。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '错过之星',
+      description: '解锁隐藏称号：错过之星'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_story_quantum_love_miss'
+    }
+  },
+  {
+    id: 'achievement_story_first',
+    name: '剧情初体验',
+    description: '完成你的第一个剧情事件。',
+    icon: '📖',
+    category: ACHIEVEMENT_CATEGORY.SPECIAL,
+    tier: ACHIEVEMENT_TIER.RARE,
+    reward: {
+      type: REWARD_TYPE.POINTS,
+      value: 100,
+      description: '获得100成就点数'
+    },
+    condition: {
+      type: 'completed_stories',
+      target: 1
+    }
+  },
+  {
+    id: 'achievement_story_all_endings_one',
+    name: '命运编织者',
+    description: '完成任意一条剧情线的所有结局。',
+    icon: '🎭',
+    category: ACHIEVEMENT_CATEGORY.SPECIAL,
+    tier: ACHIEVEMENT_TIER.EPIC,
+    reward: {
+      type: REWARD_TYPE.POINTS,
+      value: 300,
+      description: '获得300成就点数'
+    },
+    condition: {
+      type: 'all_endings_one_story',
+      target: true
+    }
+  },
+  {
+    id: 'achievement_story_all',
+    name: '全知叙事者',
+    description: '完成所有剧情线。',
+    icon: '📚',
+    category: ACHIEVEMENT_CATEGORY.SPECIAL,
+    tier: ACHIEVEMENT_TIER.LEGENDARY,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '全知叙事者',
+      description: '解锁称号：全知叙事者'
+    },
+    condition: {
+      type: 'all_stories_completed',
+      target: true
+    }
+  },
+  {
+    id: 'achievement_story_good_endings',
+    name: '善意收藏家',
+    description: '获得5个好结局。',
+    icon: '🌟',
+    category: ACHIEVEMENT_CATEGORY.SPECIAL,
+    tier: ACHIEVEMENT_TIER.RARE,
+    reward: {
+      type: REWARD_TYPE.POINTS,
+      value: 200,
+      description: '获得200成就点数'
+    },
+    condition: {
+      type: 'good_endings',
+      target: 5
+    }
+  }
+]
+
+ACHIEVEMENTS.push(...STORY_ACHIEVEMENTS)

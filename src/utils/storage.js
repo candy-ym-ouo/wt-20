@@ -5,12 +5,7 @@ const STORAGE_KEYS = {
   STATS: 'cyber_divination_stats',
   SETTINGS: 'cyber_divination_settings',
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
-  DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
-  THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
-  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
-  SEASON_DATA: 'cyber_divination_season_data',
-  SEASON_TASKS: 'cyber_divination_season_tasks',
-  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events'
+  DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -155,12 +150,9 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 3,
+      version: 1,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
-      dailyFortuneHistory: this.getDailyFortuneHistory(),
-      themeDivinationHistory: this.getThemeDivinationHistory(),
-      multiSpreadHistory: this.getMultiSpreadHistory(),
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
@@ -172,9 +164,6 @@ export const Storage = {
     if (!data || typeof data !== 'object') return false
     try {
       if (data.drawHistory) safeSet(STORAGE_KEYS.DRAW_HISTORY, data.drawHistory)
-      if (data.dailyFortuneHistory) safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, data.dailyFortuneHistory)
-      if (data.themeDivinationHistory) safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, data.themeDivinationHistory)
-      if (data.multiSpreadHistory) safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, data.multiSpreadHistory)
       if (data.collection) safeSet(STORAGE_KEYS.COLLECTION, data.collection)
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
@@ -256,149 +245,6 @@ export const Storage = {
 
   clearDailyFortuneHistory() {
     safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, [])
-  },
-
-  getThemeDivinationHistory() {
-    return safeGet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
-  },
-
-  addThemeDivinationRecord(record) {
-    const history = this.getThemeDivinationHistory()
-    history.unshift({
-      ...record,
-      id: `theme_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: Date.now()
-    })
-    if (history.length > 100) {
-      history.splice(100)
-    }
-    safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, history)
-    return history
-  },
-
-  clearThemeDivinationHistory() {
-    safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
-  },
-
-  getMultiSpreadHistory() {
-    return safeGet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
-  },
-
-  addMultiSpreadRecord(record) {
-    const history = this.getMultiSpreadHistory()
-    history.unshift({
-      ...record,
-      id: `spread_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: Date.now()
-    })
-    if (history.length > 100) {
-      history.splice(100)
-    }
-    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, history)
-    return history
-  },
-
-  clearMultiSpreadHistory() {
-    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
-  },
-
-  getSeasonData(seasonId) {
-    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
-    return allSeasonData[seasonId] || {
-      seasonId,
-      totalPoints: 0,
-      unlockedPhases: ['phase_1'],
-      claimedRewards: [],
-      joinDate: null,
-      lastActiveDate: null
-    }
-  },
-
-  updateSeasonData(seasonId, updates) {
-    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
-    const currentData = allSeasonData[seasonId] || {
-      seasonId,
-      totalPoints: 0,
-      unlockedPhases: ['phase_1'],
-      claimedRewards: [],
-      joinDate: null,
-      lastActiveDate: null
-    }
-    
-    if (!currentData.joinDate) {
-      currentData.joinDate = Date.now()
-    }
-    currentData.lastActiveDate = Date.now()
-    
-    allSeasonData[seasonId] = { ...currentData, ...updates }
-    safeSet(STORAGE_KEYS.SEASON_DATA, allSeasonData)
-    return allSeasonData[seasonId]
-  },
-
-  addSeasonPoints(seasonId, points) {
-    const seasonData = this.getSeasonData(seasonId)
-    const newPoints = (seasonData.totalPoints || 0) + points
-    return this.updateSeasonData(seasonId, { totalPoints: newPoints })
-  },
-
-  unlockPhase(seasonId, phaseId) {
-    const seasonData = this.getSeasonData(seasonId)
-    const unlockedPhases = [...new Set([...(seasonData.unlockedPhases || []), phaseId])]
-    return this.updateSeasonData(seasonId, { unlockedPhases })
-  },
-
-  claimPhaseReward(seasonId, rewardId) {
-    const seasonData = this.getSeasonData(seasonId)
-    const claimedRewards = [...new Set([...(seasonData.claimedRewards || []), rewardId])]
-    return this.updateSeasonData(seasonId, { claimedRewards })
-  },
-
-  getSeasonTasks(seasonId) {
-    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
-    return allTasks[seasonId] || {}
-  },
-
-  updateSeasonTaskProgress(seasonId, taskId, progress) {
-    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
-    const seasonTasks = allTasks[seasonId] || {}
-    const currentProgress = seasonTasks[taskId] || { completed: false, current: 0, claimed: false, completedAt: null }
-    
-    seasonTasks[taskId] = { ...currentProgress, ...progress }
-    allTasks[seasonId] = seasonTasks
-    safeSet(STORAGE_KEYS.SEASON_TASKS, allTasks)
-    return seasonTasks[taskId]
-  },
-
-  completeSeasonTask(seasonId, taskId) {
-    return this.updateSeasonTaskProgress(seasonId, taskId, {
-      completed: true,
-      completedAt: Date.now()
-    })
-  },
-
-  claimSeasonTaskReward(seasonId, taskId) {
-    return this.updateSeasonTaskProgress(seasonId, taskId, {
-      claimed: true,
-      claimedAt: Date.now()
-    })
-  },
-
-  getSeasonHiddenEvents(seasonId) {
-    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
-    return allEvents[seasonId] || []
-  },
-
-  triggerSeasonHiddenEvent(seasonId, eventId) {
-    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
-    const seasonEvents = allEvents[seasonId] || []
-    
-    if (!seasonEvents.includes(eventId)) {
-      seasonEvents.push(eventId)
-      allEvents[seasonId] = seasonEvents
-      safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, allEvents)
-      return true
-    }
-    return false
   },
 
   resetAll() {
