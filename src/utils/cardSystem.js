@@ -2,6 +2,7 @@ import { CARDS } from '../data/cards.js'
 import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
 import { Storage } from './storage.js'
 import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
+import { checkSeasonTasksAfterAction } from './seasonSystem.js'
 
 export function getAllCards() {
   return CARDS
@@ -95,6 +96,7 @@ export function saveDrawResult(drawResult, spreadType = 'single') {
   
   checkHiddenEvents(drawResult, spreadType)
   checkAchievementsAfterAction('draw')
+  checkSeasonTasksAfterAction('draw')
 
   return records
 }
@@ -255,6 +257,7 @@ export function saveDailyFortuneResult(result) {
   Storage.updateStats(card.rarity, isReversed)
   const saved = Storage.saveDailyFortune(card.id, isReversed, reading)
   checkAchievementsAfterAction('daily')
+  checkSeasonTasksAfterAction('daily')
   return saved
 }
 
@@ -311,6 +314,7 @@ export function saveThemeDivinationResult(theme, spreadTypeId, results, question
 
   checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
   checkAchievementsAfterAction('theme')
+  checkSeasonTasksAfterAction('draw')
 
   return Storage.addThemeDivinationRecord(record)
 }
@@ -377,6 +381,7 @@ export function saveMultiSpreadResult(spreadId, results, question = '') {
 
   checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
   checkAchievementsAfterAction('spread')
+  checkSeasonTasksAfterAction('draw')
 
   return Storage.addMultiSpreadRecord(record)
 }

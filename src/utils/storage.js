@@ -7,7 +7,10 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
-  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history'
+  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
+  SEASON_DATA: 'cyber_divination_season_data',
+  SEASON_TASKS: 'cyber_divination_season_tasks',
+  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events'
 }
 
 function safeGet(key, defaultValue) {
@@ -297,6 +300,105 @@ export const Storage = {
 
   clearMultiSpreadHistory() {
     safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
+  },
+
+  getSeasonData(seasonId) {
+    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
+    return allSeasonData[seasonId] || {
+      seasonId,
+      totalPoints: 0,
+      unlockedPhases: ['phase_1'],
+      claimedRewards: [],
+      joinDate: null,
+      lastActiveDate: null
+    }
+  },
+
+  updateSeasonData(seasonId, updates) {
+    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
+    const currentData = allSeasonData[seasonId] || {
+      seasonId,
+      totalPoints: 0,
+      unlockedPhases: ['phase_1'],
+      claimedRewards: [],
+      joinDate: null,
+      lastActiveDate: null
+    }
+    
+    if (!currentData.joinDate) {
+      currentData.joinDate = Date.now()
+    }
+    currentData.lastActiveDate = Date.now()
+    
+    allSeasonData[seasonId] = { ...currentData, ...updates }
+    safeSet(STORAGE_KEYS.SEASON_DATA, allSeasonData)
+    return allSeasonData[seasonId]
+  },
+
+  addSeasonPoints(seasonId, points) {
+    const seasonData = this.getSeasonData(seasonId)
+    const newPoints = (seasonData.totalPoints || 0) + points
+    return this.updateSeasonData(seasonId, { totalPoints: newPoints })
+  },
+
+  unlockPhase(seasonId, phaseId) {
+    const seasonData = this.getSeasonData(seasonId)
+    const unlockedPhases = [...new Set([...(seasonData.unlockedPhases || []), phaseId])]
+    return this.updateSeasonData(seasonId, { unlockedPhases })
+  },
+
+  claimPhaseReward(seasonId, rewardId) {
+    const seasonData = this.getSeasonData(seasonId)
+    const claimedRewards = [...new Set([...(seasonData.claimedRewards || []), rewardId])]
+    return this.updateSeasonData(seasonId, { claimedRewards })
+  },
+
+  getSeasonTasks(seasonId) {
+    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
+    return allTasks[seasonId] || {}
+  },
+
+  updateSeasonTaskProgress(seasonId, taskId, progress) {
+    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
+    const seasonTasks = allTasks[seasonId] || {}
+    const currentProgress = seasonTasks[taskId] || { completed: false, current: 0, claimed: false, completedAt: null }
+    
+    seasonTasks[taskId] = { ...currentProgress, ...progress }
+    allTasks[seasonId] = seasonTasks
+    safeSet(STORAGE_KEYS.SEASON_TASKS, allTasks)
+    return seasonTasks[taskId]
+  },
+
+  completeSeasonTask(seasonId, taskId) {
+    return this.updateSeasonTaskProgress(seasonId, taskId, {
+      completed: true,
+      completedAt: Date.now()
+    })
+  },
+
+  claimSeasonTaskReward(seasonId, taskId) {
+    return this.updateSeasonTaskProgress(seasonId, taskId, {
+      claimed: true,
+      claimedAt: Date.now()
+    })
+  },
+
+  getSeasonHiddenEvents(seasonId) {
+    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
+    return allEvents[seasonId] || []
+  },
+
+  triggerSeasonHiddenEvent(seasonId, eventId) {
+    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
+    const seasonEvents = allEvents[seasonId] || []
+    
+    if (!seasonEvents.includes(eventId)) {
+      seasonEvents.push(eventId)
+      allEvents[seasonId] = seasonEvents
+      safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, allEvents)
+      return true
+    }
+    return false
   },
 
   resetAll() {
