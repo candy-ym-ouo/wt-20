@@ -16,6 +16,11 @@ import {
 } from '../data/seasonChallenges.js'
 import { CARDS } from '../data/cards.js'
 import { CARD_CATEGORY } from '../data/constants.js'
+import { ACHIEVEMENT_TIER, ACHIEVEMENTS } from '../data/achievements.js'
+
+const HIDDEN_ACHIEVEMENT_IDS = ACHIEVEMENTS
+  .filter(a => a.tier === ACHIEVEMENT_TIER.HIDDEN)
+  .map(a => a.id)
 
 const seasonDataStore = writable(null)
 const seasonTasksStore = writable(null)
@@ -107,7 +112,8 @@ function getContext() {
   const stats = Storage.getStats()
   const collection = Storage.getCollection()
   const dailyFortune = Storage.getDailyFortune()
-  const seasonHiddenEvents = Storage.getSeasonHiddenEvents(SEASON_CONFIG.id)
+  const allSeasonHiddenEvents = Storage.getSeasonHiddenEvents(SEASON_CONFIG.id)
+  const seasonHiddenEvents = allSeasonHiddenEvents.filter(id => HIDDEN_ACHIEVEMENT_IDS.includes(id))
   
   const uniqueCards = Object.keys(collection)
   const totalCards = CARDS.length
@@ -389,6 +395,9 @@ export function claimPhaseReward(phaseId) {
 }
 
 export function recordHiddenEvent(eventId) {
+  if (!eventId || !HIDDEN_ACHIEVEMENT_IDS.includes(eventId)) {
+    return false
+  }
   const isNew = Storage.triggerSeasonHiddenEvent(SEASON_CONFIG.id, eventId)
   if (isNew) {
     checkSeasonTasksAfterAction('hidden_event', { eventId })

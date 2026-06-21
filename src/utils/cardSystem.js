@@ -163,17 +163,23 @@ function triggerHiddenEvent(card) {
   const event = card.hiddenEvent
   if (!event) return
 
-  const isNew = triggerHiddenAchievement(event.reward.value)
+  const achievementId = event.reward?.value
+  if (!achievementId) return
+
+  const isNew = triggerHiddenAchievement(achievementId)
   if (!isNew) return
+
+  const eventData = {
+    ...event,
+    achievementId,
+    cardId: card.id,
+    cardName: card.name,
+    unlockedAt: Date.now()
+  }
 
   eventListeners.forEach(cb => {
     try {
-      cb({
-        ...event,
-        cardId: card.id,
-        cardName: card.name,
-        unlockedAt: Date.now()
-      })
+      cb(eventData)
     } catch (e) {
       console.error('Hidden event callback error:', e)
     }
