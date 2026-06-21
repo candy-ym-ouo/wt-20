@@ -157,7 +157,7 @@ export const CARDS = [
       trigger: 'draw_3_times',
       title: '【隐藏事件】灵魂匹配协议',
       description: '神经同步检测完成。系统检测到你正在寻找深层链接。记住：真正的连接超越代码。',
-      reward: { type: 'unlock', value: 'achievement_romantic' }
+      reward: { type: 'unlock', value: 'achievement_hidden_neon_lovers' }
     }
   },
   {
@@ -247,7 +247,7 @@ export const CARDS = [
       trigger: 'lucky_draw',
       title: '【隐藏事件】幸运算法激活',
       description: '检测到异常好运峰值！系统判定：你今天被命运女神眷顾。',
-      reward: { type: 'unlock', value: 'achievement_lucky' }
+      reward: { type: 'unlock', value: 'achievement_hidden_legendary_lucky' }
     }
   },
   {
@@ -442,7 +442,7 @@ export const CARDS = [
       trigger: 'legendary_draw',
       title: '【隐藏事件】恒星协议解锁',
       description: '检测到传说级命运交汇！你触碰了恒星级别的好运，系统已记录这一历史性时刻。',
-      reward: { type: 'unlock', value: 'achievement_sun_touched' }
+      reward: { type: 'unlock', value: 'achievement_hidden_legendary_lucky' }
     }
   },
   {
@@ -490,7 +490,7 @@ export const CARDS = [
       trigger: 'draw_world',
       title: '【隐藏事件】赛博世界连接',
       description: '传说级卡牌"赛博世界"已被激活。你已被认证为命运的高级玩家。',
-      reward: { type: 'unlock', value: 'achievement_world' }
+      reward: { type: 'unlock', value: 'achievement_hidden_cyber_world' }
     }
   },
   {
@@ -517,7 +517,7 @@ export const CARDS = [
       trigger: 'draw_ghost',
       title: '【隐藏事件】？？？',
       description: '检测到非常规数据波动。你的神经链接中出现了不属于系统的信息... 记住：我们一直在看着你。',
-      reward: { type: 'unlock', value: 'achievement_ghost_seen' }
+      reward: { type: 'unlock', value: 'achievement_hidden_ghost_protocol' }
     }
   }
 ]

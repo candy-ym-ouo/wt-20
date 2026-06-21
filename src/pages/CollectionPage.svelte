@@ -3,6 +3,7 @@
   import { CARDS } from '../data/cards.js'
   import { CARD_RARITY, RARITY_CONFIG, CATEGORY_CONFIG } from '../data/constants.js'
   import { Storage } from '../utils/storage.js'
+  import { achievementStats } from '../utils/achievementSystem.js'
   import CardDetailModal from '../components/CardDetailModal.svelte'
 
   let collection = {}
@@ -45,6 +46,11 @@
     selectedCard = null
   }
 
+  function goToAchievements() {
+    const event = new CustomEvent('navigate', { detail: 'achievements' })
+    window.dispatchEvent(event)
+  }
+
   onMount(() => {
     refresh()
   })
@@ -58,6 +64,20 @@
     <div class="stat-label">收集进度 {progressPercent}%</div>
     <div class="progress-bar">
       <div class="progress-fill" style="width: {progressPercent}%"></div>
+    </div>
+  </div>
+  <div class="stat-card achievement-stat-card" on:click={goToAchievements}>
+    <div class="stat-value glow-yellow">{$achievementStats.points}</div>
+    <div class="stat-label">成就点数</div>
+    <div class="achievement-meta mono">
+      {$achievementStats.unlockedCount}/{$achievementStats.totalCount} · 点击查看 →
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value glow-magenta">{$achievementStats.percent}%</div>
+    <div class="stat-label">成就完成度</div>
+    <div class="progress-bar small">
+      <div class="progress-fill achievement-progress" style="width: {$achievementStats.percent}%"></div>
     </div>
   </div>
 </div>
@@ -155,5 +175,28 @@
   }
   .search-input::placeholder {
     color: var(--text-dim);
+  }
+  .achievement-stat-card {
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid rgba(255, 213, 79, 0.3);
+  }
+  .achievement-stat-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-yellow);
+    box-shadow: 0 5px 20px rgba(255, 213, 79, 0.2);
+  }
+  .achievement-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .progress-bar.small {
+    height: 4px;
+    margin-top: 8px;
+  }
+  .progress-fill.achievement-progress {
+    background: linear-gradient(90deg, var(--accent-yellow), var(--accent-magenta));
+    box-shadow: 0 0 8px var(--accent-yellow);
   }
 </style>

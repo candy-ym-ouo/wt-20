@@ -2,13 +2,16 @@
   import { onMount, onDestroy } from 'svelte'
   import { Storage } from './utils/storage.js'
   import { onHiddenEvent } from './utils/cardSystem.js'
+  import { checkAllAchievements } from './utils/achievementSystem.js'
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
   import DivinationPage from './pages/DivinationPage.svelte'
+  import AchievementsPage from './pages/AchievementsPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
+  import AchievementNotify from './components/AchievementNotify.svelte'
 
   let currentPage = 'divination'
   let historyInitialTab = 'divination'
@@ -20,6 +23,7 @@
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
+    { id: 'achievements', icon: '🏆', label: '成就' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
   ]
@@ -28,6 +32,7 @@
   let removeNavListener
 
   onMount(() => {
+    checkAllAchievements()
     removeListener = onHiddenEvent((event) => {
       hiddenEvent = event
       glitchClass = 'screen-glitch'
@@ -71,6 +76,8 @@
       <DrawPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
+    {:else if currentPage === 'achievements'}
+      <AchievementsPage />
     {:else if currentPage === 'history'}
       <HistoryPage initialTab={historyInitialTab} />
     {:else if currentPage === 'archive'}
@@ -94,6 +101,8 @@
 {#if hiddenEvent}
   <HiddenEventModal event={hiddenEvent} onClose={closeHiddenEvent} />
 {/if}
+
+<AchievementNotify />
 
 <style>
   #app-container {

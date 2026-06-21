@@ -1,6 +1,7 @@
 import { CARDS } from '../data/cards.js'
 import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG } from '../data/constants.js'
 import { Storage } from './storage.js'
+import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
 
 export function getAllCards() {
   return CARDS
@@ -93,7 +94,8 @@ export function saveDrawResult(drawResult, spreadType = 'single') {
   }
   
   checkHiddenEvents(drawResult, spreadType)
-  
+  checkAchievementsAfterAction('draw')
+
   return records
 }
 
@@ -158,10 +160,10 @@ export function onHiddenEvent(callback) {
 function triggerHiddenEvent(card) {
   const event = card.hiddenEvent
   if (!event) return
-  
-  const isNew = Storage.unlockAchievement(event.reward.value)
+
+  const isNew = triggerHiddenAchievement(event.reward.value)
   if (!isNew) return
-  
+
   eventListeners.forEach(cb => {
     try {
       cb({
@@ -251,7 +253,9 @@ export function saveDailyFortuneResult(result) {
   const { card, isReversed, reading } = result
   Storage.addToCollection(card.id, isReversed)
   Storage.updateStats(card.rarity, isReversed)
-  return Storage.saveDailyFortune(card.id, isReversed, reading)
+  const saved = Storage.saveDailyFortune(card.id, isReversed, reading)
+  checkAchievementsAfterAction('daily')
+  return saved
 }
 
 export function drawThemeCards(theme, spreadTypeId) {
@@ -306,6 +310,7 @@ export function saveThemeDivinationResult(theme, spreadTypeId, results, question
   }
 
   checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
+  checkAchievementsAfterAction('theme')
 
   return Storage.addThemeDivinationRecord(record)
 }
