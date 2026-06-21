@@ -1,0 +1,181 @@
+const STORAGE_KEYS = {
+  DRAW_HISTORY: 'cyber_divination_draw_history',
+  COLLECTION: 'cyber_divination_collection',
+  ACHIEVEMENTS: 'cyber_divination_achievements',
+  STATS: 'cyber_divination_stats',
+  SETTINGS: 'cyber_divination_settings'
+}
+
+function safeGet(key, defaultValue) {
+  try {
+    const data = localStorage.getItem(key)
+    return data ? JSON.parse(data) : defaultValue
+  } catch (e) {
+    console.error('Storage read error:', e)
+    return defaultValue
+  }
+}
+
+function safeSet(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+    return true
+  } catch (e) {
+    console.error('Storage write error:', e)
+    return false
+  }
+}
+
+export const Storage = {
+  getDrawHistory() {
+    return safeGet(STORAGE_KEYS.DRAW_HISTORY, [])
+  },
+
+  addDrawRecord(record) {
+    const history = this.getDrawHistory()
+    history.unshift({
+      ...record,
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.DRAW_HISTORY, history)
+    return history
+  },
+
+  clearDrawHistory() {
+    safeSet(STORAGE_KEYS.DRAW_HISTORY, [])
+  },
+
+  getCollection() {
+    return safeGet(STORAGE_KEYS.COLLECTION, {})
+  },
+
+  addToCollection(cardId, isReversed = false) {
+    const collection = this.getCollection()
+    if (!collection[cardId]) {
+      collection[cardId] = {
+        firstDraw: Date.now(),
+        drawCount: 0,
+        uprightCount: 0,
+        reversedCount: 0
+      }
+    }
+    collection[cardId].drawCount++
+    if (isReversed) {
+      collection[cardId].reversedCount++
+    } else {
+      collection[cardId].uprightCount++
+    }
+    collection[cardId].lastDraw = Date.now()
+    safeSet(STORAGE_KEYS.COLLECTION, collection)
+    return collection
+  },
+
+  getCollectionStats() {
+    const collection = this.getCollection()
+    const ids = Object.keys(collection)
+    const totalDraws = ids.reduce((sum, id) => sum + collection[id].drawCount, 0)
+    return {
+      uniqueCards: ids.length,
+      totalDraws,
+      collection
+    }
+  },
+
+  getAchievements() {
+    return safeGet(STORAGE_KEYS.ACHIEVEMENTS, {})
+  },
+
+  unlockAchievement(achievementId) {
+    const achievements = this.getAchievements()
+    if (!achievements[achievementId]) {
+      achievements[achievementId] = {
+        unlockedAt: Date.now(),
+        id: achievementId
+      }
+      safeSet(STORAGE_KEYS.ACHIEVEMENTS, achievements)
+      return true
+    }
+    return false
+  },
+
+  hasAchievement(achievementId) {
+    const achievements = this.getAchievements()
+    return !!achievements[achievementId]
+  },
+
+  getStats() {
+    return safeGet(STORAGE_KEYS.STATS, {
+      totalDraws: 0,
+      reversedDraws: 0,
+      legendaryCount: 0,
+      epicCount: 0,
+      rareCount: 0,
+      commonCount: 0,
+      lastDrawDate: null
+    })
+  },
+
+  updateStats(cardRarity, isReversed) {
+    const stats = this.getStats()
+    stats.totalDraws++
+    stats.lastDrawDate = Date.now()
+    if (isReversed) stats.reversedDraws++
+    if (cardRarity === 'legendary') stats.legendaryCount++
+    if (cardRarity === 'epic') stats.epicCount++
+    if (cardRarity === 'rare') stats.rareCount++
+    if (cardRarity === 'common') stats.commonCount++
+    safeSet(STORAGE_KEYS.STATS, stats)
+    return stats
+  },
+
+  getSettings() {
+    return safeGet(STORAGE_KEYS.SETTINGS, {
+      soundEnabled: true,
+      animationEnabled: true,
+      theme: 'cyber'
+    })
+  },
+
+  updateSettings(newSettings) {
+    const settings = { ...this.getSettings(), ...newSettings }
+    safeSet(STORAGE_KEYS.SETTINGS, settings)
+    return settings
+  },
+
+  exportAll() {
+    return {
+      version: 1,
+      exportDate: Date.now(),
+      drawHistory: this.getDrawHistory(),
+      collection: this.getCollection(),
+      achievements: this.getAchievements(),
+      stats: this.getStats(),
+      settings: this.getSettings()
+    }
+  },
+
+  importAll(data) {
+    if (!data || typeof data !== 'object') return false
+    try {
+      if (data.drawHistory) safeSet(STORAGE_KEYS.DRAW_HISTORY, data.drawHistory)
+      if (data.collection) safeSet(STORAGE_KEYS.COLLECTION, data.collection)
+      if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
+      if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
+      if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
+      return true
+    } catch (e) {
+      console.error('Import error:', e)
+      return false
+    }
+  },
+
+  resetAll() {
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key)
+    })
+  }
+}
