@@ -12,6 +12,7 @@
   import SpreadsPage from './pages/SpreadsPage.svelte'
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import EncyclopediaPage from './pages/EncyclopediaPage.svelte'
+  import ProfilePage from './pages/ProfilePage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
 
@@ -27,6 +28,7 @@
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'encyclopedia', icon: '📖', label: '百科' },
     { id: 'collection', icon: '📚', label: '收藏' },
+    { id: 'profile', icon: '📊', label: '档案' },
     { id: 'achievements', icon: '🏆', label: '成就' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
@@ -90,6 +92,8 @@
       <HistoryPage initialTab={historyInitialTab} />
     {:else if currentPage === 'archive'}
       <ArchivePage />
+    {:else if currentPage === 'profile'}
+      <ProfilePage />
     {/if}
   </div>
 
