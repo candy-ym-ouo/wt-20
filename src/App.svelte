@@ -10,6 +10,7 @@
   import HiddenEventModal from './components/HiddenEventModal.svelte'
 
   let currentPage = 'daily'
+  let historyInitialTab = 'divination'
   let hiddenEvent = null
   let glitchClass = ''
 
@@ -31,8 +32,18 @@
       setTimeout(() => { glitchClass = '' }, 300)
     })
     removeNavListener = (e) => {
-      if (e.detail && PAGES.some(p => p.id === e.detail)) {
-        currentPage = e.detail
+      const detail = e.detail
+      if (!detail) return
+      if (typeof detail === 'string') {
+        if (PAGES.some(p => p.id === detail)) {
+          historyInitialTab = 'divination'
+          currentPage = detail
+        }
+      } else if (typeof detail === 'object') {
+        if (PAGES.some(p => p.id === detail.page)) {
+          historyInitialTab = detail.tab || 'divination'
+          currentPage = detail.page
+        }
       }
     }
     window.addEventListener('navigate', removeNavListener)
@@ -57,7 +68,7 @@
     {:else if currentPage === 'collection'}
       <CollectionPage />
     {:else if currentPage === 'history'}
-      <HistoryPage />
+      <HistoryPage initialTab={historyInitialTab} />
     {:else if currentPage === 'archive'}
       <ArchivePage />
     {/if}

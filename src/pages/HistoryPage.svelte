@@ -5,7 +5,9 @@
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
 
-  let activeTab = 'divination'
+  export let initialTab = 'divination'
+
+  let activeTab = initialTab
   let history = []
   let dailyHistory = []
   let selectedRecord = null

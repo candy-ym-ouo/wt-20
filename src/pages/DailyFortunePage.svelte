@@ -71,7 +71,7 @@
   }
 
   function viewInHistory() {
-    const event = new CustomEvent('navigate', { detail: 'history' })
+    const event = new CustomEvent('navigate', { detail: { page: 'history', tab: 'daily' } })
     window.dispatchEvent(event)
   }
 
