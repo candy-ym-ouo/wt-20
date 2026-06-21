@@ -90,6 +90,12 @@
           <span class="reversed-tag">逆位</span>
         {/if}
       </div>
+    {:else if !profile.hasAnyDraw}
+      <div class="lucky-card-today placeholder-card">
+        <div class="lucky-label">今日幸运卡</div>
+        <div class="lucky-symbol placeholder-symbol">❓</div>
+        <div class="lucky-name placeholder-text">待抽取</div>
+      </div>
     {/if}
   </div>
 
@@ -113,7 +119,13 @@
         <div class="stat-card highlight-card">
           <div class="stat-value glow-cyan">{profile.overview.totalDraws}</div>
           <div class="stat-label">总抽卡次数</div>
-          <div class="stat-trend mono">日均 {profile.overview.avgDrawsPerDay} 次</div>
+          <div class="stat-trend mono">
+            {#if profile.hasAnyDraw}
+              日均 {profile.overview.avgDrawsPerDay} 次
+            {:else}
+              尚未开始抽卡
+            {/if}
+          </div>
         </div>
         
         <div class="stat-card">
@@ -135,13 +147,19 @@
         <div class="stat-card">
           <div class="stat-value glow-green">{profile.overview.daysActive}</div>
           <div class="stat-label">活跃天数</div>
-          <div class="stat-trend mono">首次 {formatDate(profile.overview.firstDraw)}</div>
+          <div class="stat-trend mono">
+            {#if profile.overview.firstDraw}
+              首次 {formatDate(profile.overview.firstDraw)}
+            {:else}
+              首次活动待开始
+            {/if}
+          </div>
         </div>
       </div>
 
       <div class="quick-actions">
         <button class="btn btn-primary" on:click={goToDraw}>
-          🎴 继续抽卡
+          🎴 {profile.hasAnyDraw ? '继续抽卡' : '开始抽卡'}
         </button>
         <button class="btn" on:click={goToCollection}>
           📚 查看收藏
@@ -152,29 +170,39 @@
       </div>
     </div>
 
-    <div class="section">
-      <h2 class="section-title">🔥 最近 7 天趋势</h2>
-      <div class="trend-chart">
-        {#each profile.recentTrend.trend as day, index}
-          <div class="trend-bar-container">
-            <div class="trend-bar-wrapper">
-              <div 
-                class="trend-bar" 
-                style="height: {day.count > 0 ? Math.max(10, (day.count / Math.max(1, profile.recentTrend.totalRecent / 7 * 3)) * 100) : 0}%"
-              >
-                <span class="trend-count">{day.count}</span>
+    {#if profile.hasAnyDraw}
+      <div class="section">
+        <h2 class="section-title">🔥 最近 7 天趋势</h2>
+        {#if profile.recentTrend.hasData}
+          <div class="trend-chart">
+            {#each profile.recentTrend.trend as day, index}
+              <div class="trend-bar-container">
+                <div class="trend-bar-wrapper">
+                  <div 
+                    class="trend-bar" 
+                    style="height: {day.count > 0 ? Math.max(10, (day.count / Math.max(1, profile.recentTrend.totalRecent / 7 * 3)) * 100) : 0}%"
+                  >
+                    <span class="trend-count">{day.count}</span>
+                  </div>
+                </div>
+                <div class="trend-label mono">
+                  {new Date(day.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                </div>
               </div>
-            </div>
-            <div class="trend-label mono">
-              {new Date(day.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
-            </div>
+            {/each}
           </div>
-        {/each}
+          <div class="trend-summary">
+            <span class="mono">近 7 天共 {profile.recentTrend.totalRecent} 次 · 日均 {profile.recentTrend.avgPerDay} 次</span>
+          </div>
+        {:else}
+          <div class="section-empty">
+            <div class="section-empty-icon">📈</div>
+            <div class="section-empty-title">暂无趋势数据</div>
+            <div class="section-empty-desc">最近 7 天内没有抽卡记录</div>
+          </div>
+        {/if}
       </div>
-      <div class="trend-summary">
-        <span class="mono">近 7 天共 {profile.recentTrend.totalRecent} 次 · 日均 {profile.recentTrend.avgPerDay} 次</span>
-      </div>
-    </div>
+    {/if}
 
     {#if profile.topCards && profile.topCards.length > 0}
       <div class="section">
@@ -201,182 +229,380 @@
           {/each}
         </div>
       </div>
+    {:else if profile.hasAnyDraw}
+      <div class="section">
+        <h2 class="section-title">⭐ 最常出现的卡牌</h2>
+        <div class="section-empty">
+          <div class="section-empty-icon">🃏</div>
+          <div class="section-empty-title">数据积累中</div>
+          <div class="section-empty-desc">更多抽卡数据将用于统计你的命运偏好</div>
+        </div>
+      </div>
     {/if}
+
+    {#if !profile.hasAnyDraw}
+      <div class="section">
+        <div class="welcome-card">
+          <div class="welcome-icon">✨</div>
+          <div class="welcome-title">欢迎来到命运档案</div>
+          <div class="welcome-desc">
+            这是你的专属命运数据中心。抽取第一张卡牌后，系统将开始记录并分析你的：
+          </div>
+          <ul class="welcome-features">
+            <li>🎴 抽卡偏好与分类倾向</li>
+            <li>💎 稀有度分布与运气评级</li>
+            <li>🔄 正逆位比例与运势方向</li>
+            <li>📋 阶段性命运报告</li>
+          </ul>
+          <button class="btn btn-primary" on:click={goToDraw}>
+            🚀 开启命运探索
+          </button>
+        </div>
+      </div>
+    {/if}
+
   {:else if activeTab === 'rarity'}
     <div class="section">
       <h2 class="section-title">💎 稀有度分布</h2>
       
-      <div class="luck-summary" style="border-color: {profile.rarityDistribution.luckColor}">
-        <div class="luck-icon" style="color: {profile.rarityDistribution.luckColor}">🍀</div>
-        <div class="luck-info">
-          <div class="luck-level" style="color: {profile.rarityDistribution.luckColor}">
-            {profile.rarityDistribution.luckLevel}
-          </div>
-          <div class="luck-desc">基于 {profile.rarityDistribution.total} 次抽卡分析</div>
-        </div>
-      </div>
-
-      <div class="rarity-bars">
-        {#each Object.values(profile.rarityDistribution.distribution) as rarity}
-          <div class="rarity-bar-item">
-            <div class="rarity-bar-header">
-              <span class="rarity-name" style="color: {rarity.color}">{rarity.label}</span>
-              <span class="rarity-count mono">{rarity.count} 张 · {rarity.percentage}%</span>
+      {#if profile.rarityDistribution.hasData}
+        <div class="luck-summary" style="border-color: {profile.rarityDistribution.luckColor}">
+          <div class="luck-icon" style="color: {profile.rarityDistribution.luckColor}">🍀</div>
+          <div class="luck-info">
+            <div class="luck-level" style="color: {profile.rarityDistribution.luckColor}">
+              {profile.rarityDistribution.luckLevel}
             </div>
-            <div class="rarity-bar-wrapper">
-              <div 
-                class="rarity-bar-fill" 
-                style="width: {rarity.percentage}%; background: linear-gradient(90deg, {rarity.glow}, {rarity.color}); box-shadow: 0 0 10px {rarity.glow};"
-              ></div>
-            </div>
-          </div>
-        {/each}
-      </div>
-
-      <div class="rarity-grid">
-        {#each Object.values(profile.rarityDistribution.distribution) as rarity}
-          <div class="rarity-stat-card" style="border-color: {rarity.borderColor}">
-            <div class="rarity-stat-value" style="color: {rarity.color}">{rarity.count}</div>
-            <div class="rarity-stat-label">{rarity.label}</div>
-            <div class="rarity-stat-percent mono">{rarity.percentage}%</div>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {:else if activeTab === 'reversal'}
-    <div class="section">
-      <h2 class="section-title">🔄 正逆位倾向</h2>
-      
-      <div class="reversal-summary">
-        <div class="reversal-icon">{profile.reversalTendency.tendencyIcon}</div>
-        <div class="reversal-tendency">{profile.reversalTendency.tendency}</div>
-        <div class="reversal-desc">{profile.reversalTendency.tendencyDesc}</div>
-      </div>
-
-      <div class="reversal-comparison">
-        <div class="reversal-side upright">
-          <div class="reversal-side-value glow-cyan">{profile.reversalTendency.uprightCount}</div>
-          <div class="reversal-side-label">正位</div>
-          <div class="reversal-side-percent mono">{profile.reversalTendency.uprightPercent}%</div>
-        </div>
-        
-        <div class="reversal-divider">
-          <div class="divider-line"></div>
-          <div class="divider-icon">⚖️</div>
-          <div class="divider-line"></div>
-        </div>
-        
-        <div class="reversal-side reversed">
-          <div class="reversal-side-value glow-red">{profile.reversalTendency.reversedCount}</div>
-          <div class="reversal-side-label">逆位</div>
-          <div class="reversal-side-percent mono">{profile.reversalTendency.reversedPercent}%</div>
-        </div>
-      </div>
-
-      <div class="reversal-bar-container">
-        <div class="reversal-bar">
-          <div 
-            class="reversal-bar-fill upright-fill" 
-            style="width: {profile.reversalTendency.uprightPercent}%"
-          ></div>
-          <div 
-            class="reversal-bar-fill reversed-fill" 
-            style="width: {profile.reversalTendency.reversedPercent}%"
-          ></div>
-        </div>
-        <div class="reversal-bar-labels">
-          <span class="mono" style="color: var(--accent-cyan)">正位 {profile.reversalTendency.uprightPercent}%</span>
-          <span class="mono" style="color: var(--accent-red)">逆位 {profile.reversalTendency.reversedPercent}%</span>
-        </div>
-      </div>
-    </div>
-  {:else if activeTab === 'preference'}
-    <div class="section">
-      <h2 class="section-title">🎯 分类偏好</h2>
-      
-      {#if profile.categoryPreference.dominantCategory}
-        <div class="dominant-category" style="--cat-color: {profile.categoryPreference.dominantCategory.color}">
-          <div class="dominant-icon">{profile.categoryPreference.dominantCategory.icon}</div>
-          <div class="dominant-info">
-            <div class="dominant-title">主导能量：{profile.categoryPreference.dominantCategory.label}</div>
-            <div class="dominant-desc">{profile.categoryPreference.preferenceDesc}</div>
+            <div class="luck-desc">基于 {profile.rarityDistribution.total} 次抽卡分析</div>
           </div>
         </div>
-      {/if}
 
-      <div class="category-list">
-        {#each profile.categoryPreference.categories as cat}
-          <div class="category-item" style="--cat-color: {cat.color}">
-            <div class="category-icon">{cat.icon}</div>
-            <div class="category-info">
-              <div class="category-header">
-                <span class="category-name">{cat.label}</span>
-                <span class="category-count mono">{cat.count} 张 · {cat.percentage}%</span>
+        <div class="rarity-bars">
+          {#each Object.values(profile.rarityDistribution.distribution) as rarity}
+            <div class="rarity-bar-item">
+              <div class="rarity-bar-header">
+                <span class="rarity-name" style="color: {rarity.color}">{rarity.label}</span>
+                <span class="rarity-count mono">{rarity.count} 张 · {rarity.percentage}%</span>
               </div>
-              <div class="category-bar-wrapper">
+              <div class="rarity-bar-wrapper">
                 <div 
-                  class="category-bar-fill" 
-                  style="width: {cat.percentage}%; background: var(--cat-color);"
+                  class="rarity-bar-fill" 
+                  style="width: {rarity.percentage}%; background: linear-gradient(90deg, {rarity.glow}, {rarity.color}); box-shadow: 0 0 10px {rarity.glow};"
                 ></div>
               </div>
-              <div class="category-stats">
-                <span class="mono" style="color: var(--accent-cyan)">正位率: {100 - cat.reversedRate}%</span>
-                <span class="mono" style="color: var(--accent-red)">逆位率: {cat.reversedRate}%</span>
-              </div>
             </div>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {:else if activeTab === 'report'}
-    <div class="section">
-      <h2 class="section-title">📋 阶段性命运报告</h2>
-      
-      <div class="report-verdict">
-        <div class="verdict-emoji">{profile.periodReport.verdictEmoji}</div>
-        <div class="verdict-text">{profile.periodReport.overallVerdict}</div>
-      </div>
+          {/each}
+        </div>
 
-      <div class="report-stats">
-        <div class="report-stat">
-          <div class="report-stat-value glow-cyan">{profile.periodReport.uprightRate}%</div>
-          <div class="report-stat-label">正位率</div>
+        <div class="rarity-grid">
+          {#each Object.values(profile.rarityDistribution.distribution) as rarity}
+            <div class="rarity-stat-card" style="border-color: {rarity.borderColor}">
+              <div class="rarity-stat-value" style="color: {rarity.color}">{rarity.count}</div>
+              <div class="rarity-stat-label">{rarity.label}</div>
+              <div class="rarity-stat-percent mono">{rarity.percentage}%</div>
+            </div>
+          {/each}
         </div>
-        <div class="report-stat">
-          <div class="report-stat-value glow-red">{profile.periodReport.reversedRate}%</div>
-          <div class="report-stat-label">逆位率</div>
+      {:else}
+        <div class="data-notice">
+          <div class="notice-icon">📊</div>
+          <div class="notice-title">稀有度数据待积累</div>
+          <div class="notice-desc">抽取至少 1 张卡牌后，即可查看稀有度分布与运气评级</div>
+          <button class="btn btn-primary btn-small" on:click={goToDraw}>去抽卡</button>
         </div>
-        <div class="report-stat">
-          <div class="report-stat-value glow-magenta">{profile.periodReport.totalDraws}</div>
-          <div class="report-stat-label">总抽卡</div>
-        </div>
-      </div>
 
-      {#if profile.periodReport.topKeywords && profile.periodReport.topKeywords.length > 0}
-        <div class="report-keywords">
-          <h3 class="subsection-title">🔑 高频关键词</h3>
-          <div class="keywords-cloud">
-            {#each profile.periodReport.topKeywords as kw}
-              <span class="keyword-large" style="--kw-size: {0.8 + (kw.count / profile.periodReport.totalDraws) * 2}">
-                {kw.keyword}
-                <span class="kw-count">{kw.count}</span>
-              </span>
+        <div class="preview-card">
+          <div class="preview-title">数据预览（示例）</div>
+          <div class="rarity-bars preview">
+            {#each Object.values(profile.rarityDistribution.distribution) as rarity}
+              <div class="rarity-bar-item">
+                <div class="rarity-bar-header">
+                  <span class="rarity-name" style="color: {rarity.color}">{rarity.label}</span>
+                  <span class="rarity-count mono dim">-- 张 · --%</span>
+                </div>
+                <div class="rarity-bar-wrapper">
+                  <div 
+                    class="rarity-bar-fill placeholder" 
+                    style="background: {rarity.color}22;"
+                  ></div>
+                </div>
+              </div>
             {/each}
           </div>
         </div>
       {/if}
+    </div>
 
-      <div class="report-suggestions">
-        <h3 class="subsection-title">💡 命运指引</h3>
-        <ul class="suggestion-list">
-          {#each profile.periodReport.suggestions as suggestion, index}
-            <li class="suggestion-item">
-              <span class="suggestion-number">{index + 1}</span>
-              <span class="suggestion-text">{suggestion}</span>
-            </li>
+  {:else if activeTab === 'reversal'}
+    <div class="section">
+      <h2 class="section-title">🔄 正逆位倾向</h2>
+      
+      {#if profile.reversalTendency.hasData}
+        <div class="reversal-summary">
+          <div class="reversal-icon">{profile.reversalTendency.tendencyIcon}</div>
+          <div class="reversal-tendency">{profile.reversalTendency.tendency}</div>
+          <div class="reversal-desc">{profile.reversalTendency.tendencyDesc}</div>
+        </div>
+
+        <div class="reversal-comparison">
+          <div class="reversal-side upright">
+            <div class="reversal-side-value glow-cyan">{profile.reversalTendency.uprightCount}</div>
+            <div class="reversal-side-label">正位</div>
+            <div class="reversal-side-percent mono">{profile.reversalTendency.uprightPercent}%</div>
+          </div>
+          
+          <div class="reversal-divider">
+            <div class="divider-line"></div>
+            <div class="divider-icon">⚖️</div>
+            <div class="divider-line"></div>
+          </div>
+          
+          <div class="reversal-side reversed">
+            <div class="reversal-side-value glow-red">{profile.reversalTendency.reversedCount}</div>
+            <div class="reversal-side-label">逆位</div>
+            <div class="reversal-side-percent mono">{profile.reversalTendency.reversedPercent}%</div>
+          </div>
+        </div>
+
+        <div class="reversal-bar-container">
+          <div class="reversal-bar">
+            <div 
+              class="reversal-bar-fill upright-fill" 
+              style="width: {profile.reversalTendency.uprightPercent}%"
+            ></div>
+            <div 
+              class="reversal-bar-fill reversed-fill" 
+              style="width: {profile.reversalTendency.reversedPercent}%"
+            ></div>
+          </div>
+          <div class="reversal-bar-labels">
+            <span class="mono" style="color: var(--accent-cyan)">正位 {profile.reversalTendency.uprightPercent}%</span>
+            <span class="mono" style="color: var(--accent-red)">逆位 {profile.reversalTendency.reversedPercent}%</span>
+          </div>
+        </div>
+      {:else}
+        <div class="data-notice">
+          <div class="notice-icon">⚖️</div>
+          <div class="notice-title">正逆位数据待积累</div>
+          <div class="notice-desc">抽取至少 1 张卡牌后，即可查看正逆位倾向分析</div>
+          <button class="btn btn-primary btn-small" on:click={goToDraw}>去抽卡</button>
+        </div>
+
+        <div class="preview-card">
+          <div class="preview-title">分析结果示例</div>
+          <div class="reversal-summary placeholder">
+            <div class="reversal-icon">📊</div>
+            <div class="reversal-tendency dim">数据不足</div>
+            <div class="reversal-desc dim">抽取至少 5 张卡牌后，系统将为你分析正逆位倾向。</div>
+          </div>
+
+          <div class="reversal-comparison">
+            <div class="reversal-side upright dim">
+              <div class="reversal-side-value placeholder-value">--</div>
+              <div class="reversal-side-label">正位</div>
+              <div class="reversal-side-percent mono">--%</div>
+            </div>
+            
+            <div class="reversal-divider">
+              <div class="divider-line"></div>
+              <div class="divider-icon">⚖️</div>
+              <div class="divider-line"></div>
+            </div>
+            
+            <div class="reversal-side reversed dim">
+              <div class="reversal-side-value placeholder-value">--</div>
+              <div class="reversal-side-label">逆位</div>
+              <div class="reversal-side-percent mono">--%</div>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+  {:else if activeTab === 'preference'}
+    <div class="section">
+      <h2 class="section-title">🎯 分类偏好</h2>
+      
+      {#if profile.categoryPreference.hasData}
+        {#if profile.categoryPreference.dominantCategory}
+          <div class="dominant-category" style="--cat-color: {profile.categoryPreference.dominantCategory.color}">
+            <div class="dominant-icon">{profile.categoryPreference.dominantCategory.icon}</div>
+            <div class="dominant-info">
+              <div class="dominant-title">主导能量：{profile.categoryPreference.dominantCategory.label}</div>
+              <div class="dominant-desc">{profile.categoryPreference.preferenceDesc}</div>
+            </div>
+          </div>
+        {/if}
+
+        <div class="category-list">
+          {#each profile.categoryPreference.categories as cat}
+            <div class="category-item" style="--cat-color: {cat.color}">
+              <div class="category-icon">{cat.icon}</div>
+              <div class="category-info">
+                <div class="category-header">
+                  <span class="category-name">{cat.label}</span>
+                  <span class="category-count mono">{cat.count} 张 · {cat.percentage}%</span>
+                </div>
+                <div class="category-bar-wrapper">
+                  <div 
+                    class="category-bar-fill" 
+                    style="width: {cat.percentage}%; background: var(--cat-color);"
+                  ></div>
+                </div>
+                <div class="category-stats">
+                  <span class="mono" style="color: var(--accent-cyan)">正位率: {100 - cat.reversedRate}%</span>
+                  <span class="mono" style="color: var(--accent-red)">逆位率: {cat.reversedRate}%</span>
+                </div>
+              </div>
+            </div>
           {/each}
-        </ul>
-      </div>
+        </div>
+      {:else}
+        <div class="data-notice">
+          <div class="notice-icon">🎯</div>
+          <div class="notice-title">偏好数据待积累</div>
+          <div class="notice-desc">抽取至少 1 张卡牌后，即可查看你的分类偏好与主导能量</div>
+          <button class="btn btn-primary btn-small" on:click={goToDraw}>去抽卡</button>
+        </div>
+
+        <div class="preview-card">
+          <div class="preview-title">分类列表（占位）</div>
+          <div class="category-list">
+            {#each profile.categoryPreference.categories as cat}
+              <div class="category-item" style="--cat-color: {cat.color}">
+                <div class="category-icon dim">{cat.icon}</div>
+                <div class="category-info">
+                  <div class="category-header">
+                    <span class="category-name dim">{cat.label}</span>
+                    <span class="category-count mono dim">0 张 · 0.0%</span>
+                  </div>
+                  <div class="category-bar-wrapper">
+                    <div class="category-bar-fill placeholder" style="background: {cat.color}22;"></div>
+                  </div>
+                  <div class="category-stats">
+                    <span class="mono dim">正位率: --%</span>
+                    <span class="mono dim">逆位率: --%</span>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+  {:else if activeTab === 'report'}
+    <div class="section">
+      <h2 class="section-title">📋 阶段性命运报告</h2>
+      
+      {#if profile.periodReport.hasEnoughData}
+        <div class="report-verdict">
+          <div class="verdict-emoji">{profile.periodReport.verdictEmoji}</div>
+          <div class="verdict-text">{profile.periodReport.overallVerdict}</div>
+        </div>
+
+        <div class="report-stats">
+          <div class="report-stat">
+            <div class="report-stat-value glow-cyan">{profile.periodReport.uprightRate}%</div>
+            <div class="report-stat-label">正位率</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-value glow-red">{profile.periodReport.reversedRate}%</div>
+            <div class="report-stat-label">逆位率</div>
+          </div>
+          <div class="report-stat">
+            <div class="report-stat-value glow-magenta">{profile.periodReport.totalDraws}</div>
+            <div class="report-stat-label">总抽卡</div>
+          </div>
+        </div>
+
+        {#if profile.periodReport.topKeywords && profile.periodReport.topKeywords.length > 0}
+          <div class="report-keywords">
+            <h3 class="subsection-title">🔑 高频关键词</h3>
+            <div class="keywords-cloud">
+              {#each profile.periodReport.topKeywords as kw}
+                <span class="keyword-large" style="--kw-size: {0.8 + (kw.count / profile.periodReport.totalDraws) * 2}">
+                  {kw.keyword}
+                  <span class="kw-count">{kw.count}</span>
+                </span>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <div class="report-suggestions">
+          <h3 class="subsection-title">💡 命运指引</h3>
+          <ul class="suggestion-list">
+            {#each profile.periodReport.suggestions as suggestion, index}
+              <li class="suggestion-item">
+                <span class="suggestion-number">{index + 1}</span>
+                <span class="suggestion-text">{suggestion}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {:else if profile.periodReport.hasData && !profile.periodReport.hasEnoughData}
+        <div class="report-verdict building">
+          <div class="verdict-emoji">{profile.periodReport.verdictEmoji}</div>
+          <div class="verdict-text">{profile.periodReport.overallVerdict}</div>
+        </div>
+
+        <div class="progress-card">
+          <div class="progress-header">
+            <span class="mono">数据积累进度</span>
+            <span class="mono">{profile.totalDraws} / 5 张</span>
+          </div>
+          <div class="progress-bar large">
+            <div class="progress-fill" style="width: {Math.min(100, profile.totalDraws * 20)}%"></div>
+          </div>
+          <div class="progress-hint mono">
+            还需抽取 {Math.max(0, 5 - profile.totalDraws)} 张卡牌，即可获得完整报告
+          </div>
+        </div>
+
+        <div class="report-suggestions">
+          <h3 class="subsection-title">💡 新手指引</h3>
+          <ul class="suggestion-list">
+            {#each profile.periodReport.suggestions as suggestion, index}
+              <li class="suggestion-item">
+                <span class="suggestion-number">{index + 1}</span>
+                <span class="suggestion-text">{suggestion}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {:else}
+        <div class="data-notice large">
+          <div class="notice-icon">📭</div>
+          <div class="notice-title">暂无阶段性报告</div>
+          <div class="notice-desc">抽取至少 5 张卡牌后，系统将基于你的抽卡数据生成专属命运报告</div>
+        </div>
+
+        <div class="progress-card">
+          <div class="progress-header">
+            <span class="mono">数据积累进度</span>
+            <span class="mono">0 / 5 张</span>
+          </div>
+          <div class="progress-bar large">
+            <div class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="progress-hint mono">
+            还需抽取 5 张卡牌，即可获得完整报告
+          </div>
+        </div>
+
+        <div class="welcome-card compact">
+          <div class="welcome-title small">报告将包含以下内容</div>
+          <ul class="welcome-features small">
+            <li>🌟 整体运势评判与阶段总结</li>
+            <li>🔑 高频关键词云分析</li>
+            <li>📊 正逆位比率统计</li>
+            <li>💡 个性化命运指引建议</li>
+          </ul>
+          <button class="btn btn-primary" on:click={goToDraw}>
+            🎴 开始积累数据
+          </button>
+        </div>
+      {/if}
 
       <div class="report-footer">
         <div class="mono">报告生成时间：{new Date().toLocaleString('zh-CN')}</div>
@@ -455,6 +681,25 @@
   .lucky-card-today:hover {
     transform: translateY(-3px);
     box-shadow: 0 5px 20px rgba(0, 229, 255, 0.3);
+  }
+
+  .lucky-card-today.placeholder-card {
+    cursor: default;
+    border-color: var(--border-glow);
+    opacity: 0.6;
+  }
+
+  .lucky-card-today.placeholder-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .placeholder-symbol {
+    opacity: 0.5;
+  }
+
+  .placeholder-text {
+    opacity: 0.5;
   }
 
   .lucky-label {
@@ -731,6 +976,10 @@
     color: var(--text-dim);
   }
 
+  .rarity-count.dim {
+    opacity: 0.5;
+  }
+
   .rarity-bar-wrapper {
     height: 10px;
     background: rgba(255, 255, 255, 0.1);
@@ -742,6 +991,11 @@
     height: 100%;
     border-radius: 5px;
     transition: width 0.5s ease;
+  }
+
+  .rarity-bar-fill.placeholder {
+    width: 8% !important;
+    animation: pulse 2s ease-in-out infinite;
   }
 
   .rarity-grid {
@@ -785,6 +1039,10 @@
     margin-bottom: 20px;
   }
 
+  .reversal-summary.placeholder {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
   .reversal-icon {
     font-size: 48px;
     margin-bottom: 10px;
@@ -799,10 +1057,20 @@
     margin-bottom: 8px;
   }
 
+  .reversal-tendency.dim {
+    color: var(--text-dim);
+    text-shadow: none;
+    opacity: 0.7;
+  }
+
   .reversal-desc {
     font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.7;
+  }
+
+  .reversal-desc.dim {
+    opacity: 0.6;
   }
 
   .reversal-comparison {
@@ -830,11 +1098,20 @@
     border-color: rgba(255, 82, 82, 0.3);
   }
 
+  .reversal-side.dim {
+    opacity: 0.5;
+  }
+
   .reversal-side-value {
     font-family: var(--font-mono);
     font-size: 32px;
     font-weight: bold;
     margin-bottom: 4px;
+  }
+
+  .reversal-side-value.placeholder-value {
+    color: var(--text-dim);
+    opacity: 0.5;
   }
 
   .reversal-side-label {
@@ -949,6 +1226,11 @@
     filter: drop-shadow(0 0 8px var(--cat-color));
   }
 
+  .category-icon.dim {
+    opacity: 0.5;
+    filter: none;
+  }
+
   .category-info {
     flex: 1;
   }
@@ -966,9 +1248,17 @@
     color: var(--cat-color);
   }
 
+  .category-name.dim {
+    color: var(--text-dim);
+  }
+
   .category-count {
     font-size: 11px;
     color: var(--text-dim);
+  }
+
+  .category-count.dim {
+    opacity: 0.6;
   }
 
   .category-bar-wrapper {
@@ -986,10 +1276,20 @@
     box-shadow: 0 0 8px var(--cat-color);
   }
 
+  .category-bar-fill.placeholder {
+    width: 8% !important;
+    box-shadow: none;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
   .category-stats {
     display: flex;
     justify-content: space-between;
     font-size: 10px;
+  }
+
+  .category-stats .dim {
+    opacity: 0.5;
   }
 
   .report-verdict {
@@ -999,6 +1299,11 @@
     padding: 20px;
     text-align: center;
     margin-bottom: 20px;
+  }
+
+  .report-verdict.building {
+    background: linear-gradient(135deg, rgba(255, 213, 79, 0.1), rgba(0, 229, 255, 0.1));
+    border-color: var(--accent-yellow, #ffd54f);
   }
 
   .verdict-emoji {
@@ -1137,5 +1442,197 @@
     border-top: 1px dashed var(--border-glow);
     font-size: 10px;
     color: var(--text-dim);
+  }
+
+  .section-empty {
+    background: var(--bg-card);
+    border: 1px dashed var(--border-glow);
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .section-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+
+  .section-empty-title {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .section-empty-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .data-notice {
+    background: linear-gradient(135deg, rgba(255, 213, 79, 0.08), rgba(0, 229, 255, 0.05));
+    border: 1px dashed rgba(255, 213, 79, 0.4);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .data-notice.large {
+    padding: 40px 24px;
+  }
+
+  .notice-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 10px rgba(255, 213, 79, 0.3));
+  }
+
+  .notice-title {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--accent-yellow, #ffd54f);
+    margin-bottom: 8px;
+  }
+
+  .notice-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .btn-small {
+    padding: 8px 20px;
+    font-size: 12px;
+  }
+
+  .preview-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    padding: 16px;
+    opacity: 0.7;
+  }
+
+  .preview-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border-glow);
+  }
+
+  .welcome-card {
+    background: linear-gradient(135deg, rgba(224, 64, 251, 0.08), rgba(0, 229, 255, 0.08));
+    border: 1px solid var(--border-glow);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .welcome-card.compact {
+    padding: 20px;
+    margin-top: 16px;
+  }
+
+  .welcome-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px var(--accent-magenta));
+  }
+
+  .welcome-title {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    color: var(--accent-cyan);
+    margin-bottom: 12px;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  }
+
+  .welcome-title.small {
+    font-size: 16px;
+    color: var(--text-secondary);
+    text-shadow: none;
+    margin-bottom: 12px;
+  }
+
+  .welcome-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .welcome-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .welcome-features.small {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .welcome-features li {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    background: rgba(0, 229, 255, 0.05);
+    border-radius: 6px;
+    text-align: left;
+  }
+
+  .welcome-features.small li {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .progress-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .progress-bar.large {
+    height: 14px;
+    margin-bottom: 8px;
+  }
+
+  .progress-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  .dim {
+    opacity: 0.5;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.7;
+    }
   }
 </style>

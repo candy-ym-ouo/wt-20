@@ -11,8 +11,14 @@ export function getFullProfile() {
   const spreadHistory = Storage.getMultiSpreadHistory()
 
   const allDrawRecords = getAllDrawRecords(drawHistory, dailyHistory, themeHistory, spreadHistory)
+  const totalDraws = stats.totalDraws || 0
+  const hasAnyDraw = totalDraws > 0
+  const hasEnoughData = totalDraws >= 5
   
   return {
+    hasAnyDraw,
+    hasEnoughData,
+    totalDraws,
     overview: getOverview(stats, collection, allDrawRecords),
     rarityDistribution: getRarityDistribution(stats),
     reversalTendency: getReversalTendency(stats),
@@ -89,6 +95,7 @@ function getAllDrawRecords(drawHistory, dailyHistory, themeHistory, spreadHistor
 function getOverview(stats, collection, allRecords) {
   const totalCards = CARDS.length
   const collectedCount = Object.keys(collection).length
+  const totalDraws = stats.totalDraws || 0
   const firstDraw = allRecords.length > 0 
     ? allRecords[allRecords.length - 1].timestamp 
     : null
@@ -101,36 +108,40 @@ function getOverview(stats, collection, allRecords) {
   }
 
   const avgDrawsPerDay = daysActive > 0 
-    ? (stats.totalDraws / daysActive).toFixed(1) 
-    : 0
+    ? (totalDraws / daysActive).toFixed(1) 
+    : '0.0'
 
-  const legendaryRate = stats.totalDraws > 0 
-    ? ((stats.legendaryCount / stats.totalDraws) * 100).toFixed(1) 
-    : 0
+  const legendaryRate = totalDraws > 0 
+    ? ((stats.legendaryCount / totalDraws) * 100).toFixed(1) 
+    : '0.0'
 
   const collectionRate = ((collectedCount / totalCards) * 100).toFixed(1)
 
-  let userLevel = '数据新手'
-  let levelIcon = '🌱'
-  if (stats.totalDraws >= 100) {
+  let userLevel = '未激活'
+  let levelIcon = '⏳'
+  if (totalDraws > 0 && totalDraws < 100) {
+    userLevel = '数据新手'
+    levelIcon = '🌱'
+  }
+  if (totalDraws >= 100) {
     userLevel = '命运探索者'
     levelIcon = '🔍'
   }
-  if (stats.totalDraws >= 300) {
+  if (totalDraws >= 300) {
     userLevel = '塔罗研习者'
     levelIcon = '📚'
   }
-  if (stats.totalDraws >= 500) {
+  if (totalDraws >= 500) {
     userLevel = '赛博先知'
     levelIcon = '🔮'
   }
-  if (stats.totalDraws >= 1000) {
+  if (totalDraws >= 1000) {
     userLevel = '命运编织者'
     levelIcon = '👑'
   }
 
   return {
-    totalDraws: stats.totalDraws,
+    totalDraws,
     collectedCount,
     totalCards,
     collectionRate,
@@ -145,54 +156,64 @@ function getOverview(stats, collection, allRecords) {
 }
 
 function getRarityDistribution(stats) {
-  const total = stats.totalDraws || 1
+  const total = stats.totalDraws || 0
+  const hasData = total > 0
+  
+  const safePercent = (count) => {
+    if (!hasData) return '0.0'
+    return ((count / total) * 100).toFixed(1)
+  }
   
   const distribution = {
     common: {
       count: stats.commonCount || 0,
-      percentage: ((stats.commonCount / total) * 100).toFixed(1),
+      percentage: safePercent(stats.commonCount || 0),
       ...RARITY_CONFIG[CARD_RARITY.COMMON]
     },
     rare: {
       count: stats.rareCount || 0,
-      percentage: ((stats.rareCount / total) * 100).toFixed(1),
+      percentage: safePercent(stats.rareCount || 0),
       ...RARITY_CONFIG[CARD_RARITY.RARE]
     },
     epic: {
       count: stats.epicCount || 0,
-      percentage: ((stats.epicCount / total) * 100).toFixed(1),
+      percentage: safePercent(stats.epicCount || 0),
       ...RARITY_CONFIG[CARD_RARITY.EPIC]
     },
     legendary: {
       count: stats.legendaryCount || 0,
-      percentage: ((stats.legendaryCount / total) * 100).toFixed(1),
+      percentage: safePercent(stats.legendaryCount || 0),
       ...RARITY_CONFIG[CARD_RARITY.LEGENDARY]
     }
   }
 
-  let luckLevel = '普通'
-  let luckColor = '#8a8a9a'
-  const legendaryPercent = stats.legendaryCount / total
-  const epicPercent = stats.epicCount / total
+  let luckLevel = '数据不足'
+  let luckColor = '#606080'
   
-  if (legendaryPercent >= 0.08 || (legendaryPercent + epicPercent) >= 0.25) {
-    luckLevel = '欧皇附体'
-    luckColor = '#ffd54f'
-  } else if (legendaryPercent >= 0.05 || (legendaryPercent + epicPercent) >= 0.18) {
-    luckLevel = '运气极佳'
-    luckColor = '#ba68c8'
-  } else if (legendaryPercent >= 0.03 || (legendaryPercent + epicPercent) >= 0.12) {
-    luckLevel = '运势不错'
-    luckColor = '#4fc3f7'
-  } else if (legendaryPercent >= 0.01 || (legendaryPercent + epicPercent) >= 0.08) {
-    luckLevel = '中规中矩'
-    luckColor = '#69f0ae'
-  } else {
-    luckLevel = '非酋降临'
-    luckColor = '#ff5252'
+  if (hasData) {
+    const legendaryPercent = stats.legendaryCount / total
+    const epicPercent = stats.epicCount / total
+    
+    if (legendaryPercent >= 0.08 || (legendaryPercent + epicPercent) >= 0.25) {
+      luckLevel = '欧皇附体'
+      luckColor = '#ffd54f'
+    } else if (legendaryPercent >= 0.05 || (legendaryPercent + epicPercent) >= 0.18) {
+      luckLevel = '运气极佳'
+      luckColor = '#ba68c8'
+    } else if (legendaryPercent >= 0.03 || (legendaryPercent + epicPercent) >= 0.12) {
+      luckLevel = '运势不错'
+      luckColor = '#4fc3f7'
+    } else if (legendaryPercent >= 0.01 || (legendaryPercent + epicPercent) >= 0.08) {
+      luckLevel = '中规中矩'
+      luckColor = '#69f0ae'
+    } else {
+      luckLevel = '非酋降临'
+      luckColor = '#ff5252'
+    }
   }
 
   return {
+    hasData,
     distribution,
     luckLevel,
     luckColor,
@@ -201,28 +222,36 @@ function getRarityDistribution(stats) {
 }
 
 function getReversalTendency(stats) {
-  const total = stats.totalDraws || 1
+  const total = stats.totalDraws || 0
+  const hasData = total > 0
   const reversedCount = stats.reversedDraws || 0
-  const uprightCount = total - reversedCount
+  const uprightCount = hasData ? (total - reversedCount) : 0
   
-  const reversedPercent = ((reversedCount / total) * 100).toFixed(1)
-  const uprightPercent = ((uprightCount / total) * 100).toFixed(1)
+  const reversedPercent = hasData ? ((reversedCount / total) * 100).toFixed(1) : '0.0'
+  const uprightPercent = hasData ? ((uprightCount / total) * 100).toFixed(1) : '0.0'
 
-  let tendency = '平衡'
-  let tendencyDesc = '你的正逆位分布较为均衡，命运呈现中性状态。'
-  let tendencyIcon = '⚖️'
+  let tendency = '数据不足'
+  let tendencyDesc = '抽取至少 5 张卡牌后，系统将为你分析正逆位倾向。'
+  let tendencyIcon = '📊'
   
-  if (reversedPercent >= 55) {
-    tendency = '逆位偏多'
-    tendencyDesc = '你的逆位卡牌出现频率较高，可能正处于挑战与成长的时期。每一次逆位都是学习的机会。'
-    tendencyIcon = '🔄'
-  } else if (uprightPercent >= 55) {
-    tendency = '正位偏多'
-    tendencyDesc = '你的正位卡牌占比较高，整体运势积极向上，正能量满满！'
-    tendencyIcon = '✨'
+  if (hasData) {
+    if (reversedPercent >= 55) {
+      tendency = '逆位偏多'
+      tendencyDesc = '你的逆位卡牌出现频率较高，可能正处于挑战与成长的时期。每一次逆位都是学习的机会。'
+      tendencyIcon = '🔄'
+    } else if (uprightPercent >= 55) {
+      tendency = '正位偏多'
+      tendencyDesc = '你的正位卡牌占比较高，整体运势积极向上，正能量满满！'
+      tendencyIcon = '✨'
+    } else {
+      tendency = '平衡'
+      tendencyDesc = '你的正逆位分布较为均衡，命运呈现中性状态。'
+      tendencyIcon = '⚖️'
+    }
   }
 
   return {
+    hasData,
     reversedCount,
     uprightCount,
     reversedPercent,
@@ -257,23 +286,29 @@ function getCategoryPreference(collection, allRecords) {
     }
   })
 
-  const total = allRecords.length || 1
+  const total = allRecords.length || 0
+  const hasData = total > 0
+  
+  const safePercent = (count) => {
+    if (!hasData) return '0.0'
+    return ((count / total) * 100).toFixed(1)
+  }
 
   const categories = Object.entries(categoryCounts).map(([key, count]) => ({
     id: key,
     count,
-    percentage: ((count / total) * 100).toFixed(1),
+    percentage: safePercent(count),
     reversedCount: categoryReversed[key] || 0,
-    reversedRate: count > 0 ? (((categoryReversed[key] || 0) / count) * 100).toFixed(1) : 0,
+    reversedRate: count > 0 ? (((categoryReversed[key] || 0) / count) * 100).toFixed(1) : '0.0',
     ...CATEGORY_CONFIG[key]
   }))
 
   categories.sort((a, b) => b.count - a.count)
 
-  let dominantCategory = categories[0]
+  const dominantCategory = categories[0]
   let preferenceDesc = ''
   
-  if (dominantCategory && dominantCategory.count > 0) {
+  if (hasData && dominantCategory && dominantCategory.count > 0) {
     preferenceDesc = `你与「${dominantCategory.label}」类卡牌有着更深的链接，`
     switch (dominantCategory.id) {
       case CARD_CATEGORY.TECH:
@@ -295,8 +330,9 @@ function getCategoryPreference(collection, allRecords) {
   }
 
   return {
+    hasData,
     categories,
-    dominantCategory,
+    dominantCategory: hasData ? dominantCategory : null,
     preferenceDesc
   }
 }
@@ -315,7 +351,7 @@ function getTopCards(collection, limit = 5) {
       reversedCount: data.reversedCount || 0,
       firstDraw: data.firstDraw,
       lastDraw: data.lastDraw,
-      uprightRate: data.drawCount > 0 ? ((data.uprightCount / data.drawCount) * 100).toFixed(0) : 0
+      uprightRate: data.drawCount > 0 ? ((data.uprightCount / data.drawCount) * 100).toFixed(0) : '0'
     }))
     .filter(item => item.card)
 
@@ -371,12 +407,15 @@ function getRecentTrend(allRecords, days = 7) {
     days,
     trend,
     totalRecent,
-    avgPerDay
+    avgPerDay,
+    hasData: totalRecent > 0
   }
 }
 
 function generatePeriodReport(allRecords, stats, collection) {
-  const total = stats.totalDraws || 1
+  const total = stats.totalDraws || 0
+  const hasData = total > 0
+  const hasEnoughData = total >= 5
   
   const cardMap = {}
   CARDS.forEach(card => {
@@ -406,57 +445,77 @@ function generatePeriodReport(allRecords, stats, collection) {
     .slice(0, 8)
     .map(([keyword, count]) => ({ keyword, count }))
 
-  let overallVerdict = ''
-  let verdictEmoji = ''
-  const overallUprightRate = uprightTotal / total
-
-  if (overallUprightRate >= 0.65) {
-    overallVerdict = '这段时间你的整体运势非常积极，正位卡牌占主导，各方面都在向好的方向发展。保持这份正能量，继续前进！'
-    verdictEmoji = '🌟'
-  } else if (overallUprightRate >= 0.55) {
-    overallVerdict = '你的整体运势较为积极，虽然偶尔会遇到小挑战，但整体趋势向上。保持信心，稳步前行。'
-    verdictEmoji = '✨'
-  } else if (overallUprightRate >= 0.45) {
-    overallVerdict = '你的运势处于平衡状态，有起有落。这是成长的必经之路，在挑战中学习，在顺境中积累。'
-    verdictEmoji = '⚖️'
-  } else if (overallUprightRate >= 0.35) {
-    overallVerdict = '近期你可能遇到了一些挑战，逆位卡牌较多。但请记住，每一次逆位都是成长的契机，风雨过后必有彩虹。'
-    verdictEmoji = '🌧️'
-  } else {
-    overallVerdict = '这段时间对你来说可能是一段考验期。但最黑暗的时刻往往是黎明前的曙光，坚持住，蜕变即将到来。'
-    verdictEmoji = '🔥'
+  let overallVerdict = '数据不足，暂无阶段性报告。'
+  let verdictEmoji = '📭'
+  
+  if (hasData && !hasEnoughData) {
+    overallVerdict = `你已抽取 ${total} 张卡牌，继续积累更多数据以获得更准确的命运报告（建议至少抽取 5 张）。`
+    verdictEmoji = '📈'
+  } else if (hasEnoughData) {
+    const overallUprightRate = uprightTotal / total
+    if (overallUprightRate >= 0.65) {
+      overallVerdict = '这段时间你的整体运势非常积极，正位卡牌占主导，各方面都在向好的方向发展。保持这份正能量，继续前进！'
+      verdictEmoji = '🌟'
+    } else if (overallUprightRate >= 0.55) {
+      overallVerdict = '你的整体运势较为积极，虽然偶尔会遇到小挑战，但整体趋势向上。保持信心，稳步前行。'
+      verdictEmoji = '✨'
+    } else if (overallUprightRate >= 0.45) {
+      overallVerdict = '你的运势处于平衡状态，有起有落。这是成长的必经之路，在挑战中学习，在顺境中积累。'
+      verdictEmoji = '⚖️'
+    } else if (overallUprightRate >= 0.35) {
+      overallVerdict = '近期你可能遇到了一些挑战，逆位卡牌较多。但请记住，每一次逆位都是成长的契机，风雨过后必有彩虹。'
+      verdictEmoji = '🌧️'
+    } else {
+      overallVerdict = '这段时间对你来说可能是一段考验期。但最黑暗的时刻往往是黎明前的曙光，坚持住，蜕变即将到来。'
+      verdictEmoji = '🔥'
+    }
   }
 
   const suggestions = []
   
-  if (stats.totalDraws < 20) {
+  if (!hasData) {
+    suggestions.push('开始你的命运探索之旅吧！抽取第一张卡牌，开启专属档案。')
+    suggestions.push('可以尝试每日抽签，坚持打卡能获得更多稀有卡概率加成。')
+    suggestions.push('使用不同的牌阵占卜，获取多维度的命运洞察。')
+  } else if (!hasEnoughData) {
     suggestions.push('继续探索你的命运吧！抽取更多卡牌，建立更完整的命运档案。')
-  }
-  
-  const rareCards = Object.values(collection).filter(c => {
-    const card = cardMap[Object.keys(collection).find(k => collection[k] === c)]
-    return card && card.rarity !== CARD_RARITY.COMMON
-  }).length
-  
-  if (rareCards < 3) {
     suggestions.push('尝试每日签到抽取命运签，坚持打卡可以提升稀有卡概率哦！')
+    suggestions.push('定期回顾你的命运档案，观察运势的变化趋势。')
+  } else {
+    if (total < 20) {
+      suggestions.push('继续探索你的命运吧！抽取更多卡牌，建立更完整的命运档案。')
+    }
+    
+    const rareCards = Object.values(collection).filter(c => {
+      const card = cardMap[Object.keys(collection).find(k => collection[k] === c)]
+      return card && card.rarity !== CARD_RARITY.COMMON
+    }).length
+    
+    if (rareCards < 3) {
+      suggestions.push('尝试每日签到抽取命运签，坚持打卡可以提升稀有卡概率哦！')
+    }
+
+    const categoryStats = getCategoryPreference(collection, allRecords)
+    if (categoryStats.dominantCategory) {
+      suggestions.push(`你与「${categoryStats.dominantCategory.label}」能量特别契合，可以多关注相关领域的信息。`)
+    }
+
+    suggestions.push('定期回顾你的命运档案，观察运势的变化趋势，更好地把握人生方向。')
   }
 
-  const categoryStats = getCategoryPreference(collection, allRecords)
-  if (categoryStats.dominantCategory) {
-    suggestions.push(`你与「${categoryStats.dominantCategory.label}」能量特别契合，可以多关注相关领域的信息。`)
-  }
-
-  suggestions.push('定期回顾你的命运档案，观察运势的变化趋势，更好地把握人生方向。')
+  const uprightRate = hasData ? ((uprightTotal / total) * 100).toFixed(1) : '0.0'
+  const reversedRate = hasData ? ((reversedTotal / total) * 100).toFixed(1) : '0.0'
 
   return {
+    hasData,
+    hasEnoughData,
     overallVerdict,
     verdictEmoji,
-    topKeywords,
+    topKeywords: hasData ? topKeywords : [],
     suggestions,
-    totalDraws: stats.totalDraws,
-    uprightRate: (overallUprightRate * 100).toFixed(1),
-    reversedRate: ((reversedTotal / total) * 100).toFixed(1)
+    totalDraws: total,
+    uprightRate,
+    reversedRate
   }
 }
 
