@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
+  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
   DECKS: 'cyber_divination_decks',
   THEME_ALBUMS: 'cyber_divination_theme_albums',
   SHARE_HISTORY: 'cyber_divination_share_history'
@@ -159,6 +160,7 @@ export const Storage = {
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
       themeDivinationHistory: this.getThemeDivinationHistory(),
+      multiSpreadHistory: this.getMultiSpreadHistory(),
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
@@ -174,6 +176,7 @@ export const Storage = {
       if (data.drawHistory) safeSet(STORAGE_KEYS.DRAW_HISTORY, data.drawHistory)
       if (data.dailyFortuneHistory) safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, data.dailyFortuneHistory)
       if (data.themeDivinationHistory) safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, data.themeDivinationHistory)
+      if (data.multiSpreadHistory) safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, data.multiSpreadHistory)
       if (data.collection) safeSet(STORAGE_KEYS.COLLECTION, data.collection)
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
@@ -279,6 +282,28 @@ export const Storage = {
 
   clearThemeDivinationHistory() {
     safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
+  },
+
+  getMultiSpreadHistory() {
+    return safeGet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
+  },
+
+  addMultiSpreadRecord(record) {
+    const history = this.getMultiSpreadHistory()
+    history.unshift({
+      ...record,
+      id: `spread_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, history)
+    return history
+  },
+
+  clearMultiSpreadHistory() {
+    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
   },
 
   getDecks() {

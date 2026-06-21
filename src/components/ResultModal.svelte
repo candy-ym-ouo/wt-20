@@ -164,6 +164,8 @@
     {timestamp}
     {recordType}
     {consecutiveDays}
+    spreadId={spreadType === 'multi-spread' && spreadConfig ? spreadConfig.id : null}
+    spreadConfig={spreadType === 'multi-spread' ? spreadConfig : null}
     onClose={closeShare}
     onGoToReview={goToReview}
   />

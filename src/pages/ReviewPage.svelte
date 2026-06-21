@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { Storage } from '../utils/storage.js'
-  import { THEME_CONFIG } from '../data/constants.js'
+  import { THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
   import {
     getAllRecordsForReview,
     generateReviewSummary,
@@ -22,6 +22,10 @@
   let showDetailModal = false
   let detailResults = null
   let detailCustomTitle = null
+  let detailSpreadConfig = null
+  let detailSpreadType = 'single'
+  let detailTimestamp = null
+  let detailRecordType = null
 
   const RANGE_OPTIONS = [
     { id: '7d', label: '近 7 天', days: 7 },
@@ -60,7 +64,8 @@
     const types = {
       daily: { icon: '🎐', label: '每日签', color: 'var(--accent-yellow)' },
       theme: { icon: '🔮', label: '主题占卜', color: 'var(--accent-magenta)' },
-      divination: { icon: '🎴', label: '普通占卜', color: 'var(--accent-cyan)' }
+      divination: { icon: '🎴', label: '普通占卜', color: 'var(--accent-cyan)' },
+      spread: { icon: '✚', label: '牌阵占卜', color: 'var(--accent-purple, #ba68c8)' }
     }
     return types[record._type] || types.divination
   }
@@ -80,6 +85,7 @@
   function getRecordCardIds(record) {
     if (record._type === 'daily') return [record.cardId]
     if (record._type === 'theme') return (record.cards || []).map(c => c.cardId)
+    if (record._type === 'spread') return (record.cards || []).map(c => c.cardId)
     if (record._type === 'divination') {
       if (record.spreadType === 'single') return [record.cardId]
       return (record.cards || []).map(c => c.cardId)
@@ -95,6 +101,9 @@
   }
 
   function openDetail(record) {
+    detailTimestamp = record.timestamp
+    detailRecordType = record._type
+
     if (record._type === 'daily') {
       const card = getCardById(record.cardId)
       if (!card) return
@@ -109,6 +118,8 @@
         }
       }]
       detailCustomTitle = '◆ 🎐 每日命运签 ◆'
+      detailSpreadType = 'single'
+      detailSpreadConfig = null
     } else if (record._type === 'theme') {
       const themeConfig = THEME_CONFIG[record.theme]
       const spreadName = themeConfig?.spreadTypes?.find(s => s.id === record.spreadTypeId)?.name || `${record.cards.length}牌阵`
@@ -129,6 +140,30 @@
       detailCustomTitle = themeConfig
         ? `◆ ${themeConfig.icon} ${themeConfig.name} · ${spreadName} ◆`
         : null
+      detailSpreadType = 'theme'
+      detailSpreadConfig = null
+    } else if (record._type === 'spread') {
+      const spreadConfig = MULTI_SPREAD_CONFIG[record.spreadId]
+      detailResults = record.cards.map(c => {
+        const card = getCardById(c.cardId)
+        return {
+          card,
+          isReversed: c.isReversed,
+          position: c.position,
+          positionId: c.positionId,
+          reading: {
+            title: c.title,
+            meaning: c.meaning,
+            advice: c.advice,
+            fortune: c.fortune
+          }
+        }
+      })
+      detailCustomTitle = spreadConfig
+        ? `◆ ${spreadConfig.icon} ${spreadConfig.name} ◆`
+        : `◆ ${record.cards.length} 牌阵结果 ◆`
+      detailSpreadType = 'multi-spread'
+      detailSpreadConfig = spreadConfig
     } else {
       if (record.spreadType === 'single') {
         const card = getCardById(record.cardId)
@@ -140,6 +175,8 @@
           reading
         }]
         detailCustomTitle = '◆ 占 卜 结 果 ◆'
+        detailSpreadType = 'single'
+        detailSpreadConfig = null
       } else {
         detailResults = record.cards.map(c => {
           const card = getCardById(c.cardId)
@@ -152,6 +189,8 @@
           }
         })
         detailCustomTitle = '◆ 三 牌 阵 结 果 ◆'
+        detailSpreadType = 'three'
+        detailSpreadConfig = null
       }
     }
     showDetailModal = true
@@ -166,6 +205,10 @@
     showDetailModal = false
     detailResults = null
     detailCustomTitle = null
+    detailSpreadConfig = null
+    detailSpreadType = 'single'
+    detailTimestamp = null
+    detailRecordType = null
   }
 
   function goToHistory() {
@@ -186,7 +229,8 @@
   const RECORD_TYPES_STATS = [
     { key: 'dailyCount', label: '每日签', icon: '🎐', color: 'var(--accent-yellow)' },
     { key: 'themeCount', label: '主题占卜', icon: '🔮', color: 'var(--accent-magenta)' },
-    { key: 'divinationCount', label: '普通占卜', icon: '🎴', color: 'var(--accent-cyan)' }
+    { key: 'divinationCount', label: '普通占卜', icon: '🎴', color: 'var(--accent-cyan)' },
+    { key: 'spreadCount', label: '牌阵占卜', icon: '✚', color: 'var(--accent-purple, #ba68c8)' }
   ]
 </script>
 
@@ -310,7 +354,7 @@
                 <div class="tc-time mono">{formatRelativeTime(record.timestamp)}</div>
               </div>
               <div class="tc-title">{getRecordTitle(record)}</div>
-              {#if record._type === 'theme' && record.question}
+              {#if (record._type === 'theme' || record._type === 'spread') && record.question}
                 <div class="tc-question">💭 {record.question}</div>
               {/if}
               <div class="tc-footer">
@@ -339,6 +383,8 @@
     timestamp={currentShareData.timestamp}
     recordType={currentShareData.recordType}
     consecutiveDays={currentShareData.consecutiveDays}
+    spreadId={currentShareData.spreadId}
+    spreadConfig={currentShareData.spreadConfig}
     onClose={closeShare}
   />
 {/if}
@@ -346,8 +392,11 @@
 {#if showDetailModal && detailResults}
   <ResultModal
     results={detailResults}
-    spreadType="theme"
+    spreadType={detailSpreadType}
+    spreadConfig={detailSpreadConfig}
     customTitle={detailCustomTitle}
+    timestamp={detailTimestamp || Date.now()}
+    recordType={detailRecordType}
     onClose={closeDetail}
     onDrawAgain={closeDetail}
   />
@@ -439,7 +488,7 @@
 
   .summary-types {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-bottom: 16px;
   }

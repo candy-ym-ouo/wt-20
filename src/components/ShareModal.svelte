@@ -7,7 +7,8 @@
     generateShortShareText,
     generateOverallInsight,
     copyToClipboard,
-    formatTimestamp
+    formatTimestamp,
+    downloadShareImage
   } from '../utils/shareSystem.js'
 
   export let results
@@ -17,6 +18,8 @@
   export let timestamp = Date.now()
   export let recordType = null
   export let consecutiveDays = null
+  export let spreadId = null
+  export let spreadConfig = null
   export let onClose
   export let onGoToReview = null
 
@@ -63,13 +66,29 @@
     if (onClose) onClose()
   }
 
-  function handleShareImage() {
-    Storage.addShareRecord({
-      type: 'image',
-      shareData: { results, theme, spreadName, question, timestamp, recordType }
-    })
-    copyStatus = 'image'
-    setTimeout(() => { copyStatus = '' }, 2000)
+  async function handleShareImage() {
+    copyStatus = 'image_loading'
+    try {
+      await downloadShareImage(results, {
+        theme,
+        spreadName,
+        question,
+        timestamp,
+        recordType,
+        consecutiveDays,
+        spreadId,
+        spreadConfig
+      })
+      Storage.addShareRecord({
+        type: 'image',
+        shareData: { results, theme, spreadName, question, timestamp, recordType }
+      })
+      copyStatus = 'image'
+    } catch (e) {
+      console.error('Image generation failed:', e)
+      copyStatus = 'error'
+    }
+    setTimeout(() => { copyStatus = '' }, 2500)
   }
 
   const TAB_OPTIONS = [
@@ -128,8 +147,10 @@
         </div>
 
         <div class="share-actions">
-          <button class="btn btn-primary btn-block" on:click={handleShareImage}>
-            {copyStatus === 'image' ? '✓ 已生成' : '📸 保存为图片'}
+          <button class="btn btn-primary btn-block" on:click={handleShareImage} disabled={copyStatus === 'image_loading'}>
+            {#if copyStatus === 'image_loading'}⏳ 生成中...
+            {:else if copyStatus === 'image'}✓ 已保存
+            {:else}📸 保存为图片{/if}
           </button>
         </div>
 
