@@ -4,7 +4,7 @@
   import { getCardById } from '../utils/cardSystem.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
-  import { THEME_CONFIG } from '../data/constants.js'
+  import { THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
 
   export let initialTab = 'divination'
 
@@ -12,8 +12,10 @@
   let history = []
   let dailyHistory = []
   let themeHistory = []
+  let spreadHistory = []
   let selectedRecord = null
   let selectedCustomTitle = null
+  let selectedSpreadConfig = null
   let showDetail = false
 
   function refresh() {
@@ -46,6 +48,16 @@
     themeHistory = themeRaw.map(record => ({
       ...record,
       _theme: THEME_CONFIG[record.theme],
+      _cards: record.cards.map(c => ({
+        ...c,
+        _card: getCardById(c.cardId)
+      }))
+    }))
+
+    const spreadRaw = Storage.getMultiSpreadHistory()
+    spreadHistory = spreadRaw.map(record => ({
+      ...record,
+      _spread: MULTI_SPREAD_CONFIG[record.spreadId],
       _cards: record.cards.map(c => ({
         ...c,
         _card: getCardById(c.cardId)
@@ -126,6 +138,7 @@
     showDetail = false
     selectedRecord = null
     selectedCustomTitle = null
+    selectedSpreadConfig = null
   }
 
   function clearHistory() {
@@ -142,6 +155,11 @@
     } else if (activeTab === 'theme') {
       if (confirm('确定要清空所有主题占卜历史记录吗？此操作不可撤销。')) {
         Storage.clearThemeDivinationHistory()
+        refresh()
+      }
+    } else if (activeTab === 'spread') {
+      if (confirm('确定要清空所有牌阵历史记录吗？此操作不可撤销。')) {
+        Storage.clearMultiSpreadHistory()
         refresh()
       }
     }
@@ -166,6 +184,8 @@
     } else {
       selectedCustomTitle = null
     }
+
+    selectedSpreadConfig = null
     
     selectedRecord = record._cards.map(c => {
       const card = getCardById(c.cardId)
@@ -184,6 +204,41 @@
     showDetail = true
   }
 
+  function openSpreadRecord(record) {
+    const spread = record._spread || MULTI_SPREAD_CONFIG[record.spreadId]
+    
+    if (spread) {
+      selectedCustomTitle = `◆ ${spread.icon} ${spread.name} ◆`
+      selectedSpreadConfig = spread
+    } else {
+      selectedCustomTitle = null
+      selectedSpreadConfig = null
+    }
+    
+    selectedRecord = record._cards.map(c => {
+      const card = getCardById(c.cardId)
+      return {
+        card,
+        isReversed: c.isReversed,
+        position: c.position,
+        positionId: c.positionId,
+        positionDesc: c.positionDesc,
+        reading: {
+          title: c.title,
+          meaning: c.meaning,
+          advice: c.advice,
+          fortune: c.fortune
+        }
+      }
+    })
+    showDetail = true
+  }
+
+  function goToSpreads() {
+    const event = new CustomEvent('navigate', { detail: 'spreads' })
+    window.dispatchEvent(event)
+  }
+
   onMount(() => {
     refresh()
   })
@@ -191,7 +246,7 @@
 
 <div class="header-actions">
   <h1 class="page-title" style="flex:1; text-align: left; margin: 0; font-size: 18px;">◆ 历 史 记 录 ◆</h1>
-  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0)}
+  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0) || (activeTab === 'spread' && spreadHistory.length > 0)}
     <button class="btn icon-btn" on:click={clearHistory} title="清空历史">
       🗑️
     </button>
@@ -201,6 +256,9 @@
 <div class="tabs">
   <div class="tab {activeTab === 'divination' ? 'active' : ''}" on:click={() => (activeTab = 'divination')}>
     🎴 占卜记录
+  </div>
+  <div class="tab {activeTab === 'spread' ? 'active' : ''}" on:click={() => (activeTab = 'spread')}>
+    ✚ 牌阵占卜
   </div>
   <div class="tab {activeTab === 'theme' ? 'active' : ''}" on:click={() => (activeTab = 'theme')}>
     🔮 主题占卜
@@ -245,6 +303,46 @@
               </div>
             </div>
           {/if}
+          <div class="history-time mono">{formatTime(record.timestamp)}</div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'spread'}
+  {#if spreadHistory.length === 0}
+    <div class="empty-state">
+      <div class="empty-state-icon">✚</div>
+      <div class="empty-state-text">暂无牌阵占卜记录<br/>
+        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToSpreads}>
+          ✚ 去进行牌阵占卜
+        </button>
+      </div>
+    </div>
+  {:else}
+    <div class="history-list">
+      {#each spreadHistory as record}
+        <div
+          class="history-item spread-item"
+          style="--theme-color: {record._spread?.color || '#e040fb'}; --theme-glow: {record._spread?.glowColor || 'rgba(224, 64, 251, 0.3)'}"
+          on:click={() => openSpreadRecord(record)}
+        >
+          <div class="history-symbol" style="color: var(--theme-color)">
+            {record._spread?.icon || '✚'}
+          </div>
+          <div class="history-info">
+            <div class="history-card-name">{record._spread?.name || '牌阵'}占卜</div>
+            <div class="history-meta">
+              <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record.question}
+                <span class="question-preview">"{record.question}"</span>
+              {/if}
+            </div>
+            <div class="history-cards">
+              {#each record._cards as c, i}
+                <span title="{c._card?.name || '未知'}" style="margin-right: 4px;">{c._card?.symbol || '?'}</span>
+              {/each}
+            </div>
+          </div>
           <div class="history-time mono">{formatTime(record.timestamp)}</div>
         </div>
       {/each}
@@ -329,7 +427,8 @@
 {#if showDetail && selectedRecord}
   <ResultModal
     results={selectedRecord}
-    spreadType={selectedCustomTitle ? 'theme' : (selectedRecord.length === 1 ? 'single' : 'three')}
+    spreadType={selectedSpreadConfig ? 'multi-spread' : (selectedCustomTitle ? 'theme' : (selectedRecord.length === 1 ? 'single' : 'three'))}
+    spreadConfig={selectedSpreadConfig}
     customTitle={selectedCustomTitle}
     onClose={closeDetail}
     onDrawAgain={closeDetail}
@@ -373,6 +472,15 @@
     border-color: var(--theme-glow);
   }
   .theme-item:hover {
+    border-color: var(--theme-color);
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    box-shadow: 0 0 15px var(--theme-glow);
+  }
+  .spread-item {
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    border-color: var(--theme-glow);
+  }
+  .spread-item:hover {
     border-color: var(--theme-color);
     background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
     box-shadow: 0 0 15px var(--theme-glow);

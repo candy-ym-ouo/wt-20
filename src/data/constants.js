@@ -128,3 +128,96 @@ export const THEME_CONFIG = {
     ]
   }
 }
+
+export const MULTI_SPREAD_TYPES = {
+  CROSS: 'cross',
+  RELATIONSHIP: 'relationship',
+  DECISION: 'decision'
+}
+
+export const MULTI_SPREAD_CONFIG = {
+  [MULTI_SPREAD_TYPES.CROSS]: {
+    id: 'cross',
+    name: '十字阵',
+    icon: '✚',
+    color: '#e040fb',
+    glowColor: 'rgba(224, 64, 251, 0.3)',
+    description: '经典十字阵，从四个维度剖析问题核心',
+    cardCount: 5,
+    positions: [
+      { id: 'center', name: '核心', desc: '问题的本质与中心' },
+      { id: 'past', name: '过去影响', desc: '过去对现状的影响' },
+      { id: 'present', name: '当下状况', desc: '当前的状态与环境' },
+      { id: 'future', name: '未来趋势', desc: '可能的发展方向' },
+      { id: 'advice', name: '建议指引', desc: '应对的方法与建议' }
+    ],
+    layout: {
+      type: 'cross',
+      positions: [
+        { key: 'past', row: 1, col: 0 },
+        { key: 'present', row: 1, col: 1 },
+        { key: 'center', row: 0, col: 1 },
+        { key: 'future', row: 1, col: 2 },
+        { key: 'advice', row: 2, col: 1 }
+      ]
+    }
+  },
+  [MULTI_SPREAD_TYPES.RELATIONSHIP]: {
+    id: 'relationship',
+    name: '关系阵',
+    icon: '💕',
+    color: '#ff5252',
+    glowColor: 'rgba(255, 82, 82, 0.3)',
+    description: '深度洞察人际关系与情感联结',
+    cardCount: 4,
+    positions: [
+      { id: 'self', name: '你的状态', desc: '你在关系中的位置与感受' },
+      { id: 'other', name: '对方状态', desc: '对方的想法与感受' },
+      { id: 'current', name: '关系现状', desc: '当前关系的实际状态' },
+      { id: 'outcome', name: '发展结果', desc: '关系的走向与建议' }
+    ],
+    layout: {
+      type: 'relationship',
+      positions: [
+        { key: 'self', row: 0, col: 0 },
+        { key: 'other', row: 0, col: 1 },
+        { key: 'current', row: 1, col: 0 },
+        { key: 'outcome', row: 1, col: 1 }
+      ]
+    }
+  },
+  [MULTI_SPREAD_TYPES.DECISION]: {
+    id: 'decision',
+    name: '抉择阵',
+    icon: '⚖️',
+    color: '#00e5ff',
+    glowColor: 'rgba(0, 229, 255, 0.3)',
+    description: '辅助两难抉择，看清两种选择的利弊',
+    cardCount: 5,
+    positions: [
+      { id: 'current', name: '当前状况', desc: '你面临的现状' },
+      { id: 'choiceA', name: '选择A', desc: '第一个选项的情况' },
+      { id: 'resultA', name: 'A的结果', desc: '选择A的可能后果' },
+      { id: 'choiceB', name: '选择B', desc: '第二个选项的情况' },
+      { id: 'resultB', name: 'B的结果', desc: '选择B的可能后果' }
+    ],
+    layout: {
+      type: 'decision',
+      positions: [
+        { key: 'current', row: 0, col: 1 },
+        { key: 'choiceA', row: 1, col: 0 },
+        { key: 'resultA', row: 2, col: 0 },
+        { key: 'choiceB', row: 1, col: 2 },
+        { key: 'resultB', row: 2, col: 2 }
+      ]
+    }
+  }
+}
+
+export function getAllMultiSpreads() {
+  return Object.values(MULTI_SPREAD_CONFIG)
+}
+
+export function getMultiSpreadConfig(spreadId) {
+  return MULTI_SPREAD_CONFIG[spreadId] || null
+}

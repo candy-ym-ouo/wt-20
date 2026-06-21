@@ -1,5 +1,5 @@
 import { CARDS } from '../data/cards.js'
-import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG } from '../data/constants.js'
+import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
 import { Storage } from './storage.js'
 import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
 
@@ -321,4 +321,62 @@ export function getThemeConfig(theme) {
 
 export function getAllThemes() {
   return Object.values(THEME_CONFIG)
+}
+
+export function drawMultiSpread(spreadId) {
+  const spreadConfig = MULTI_SPREAD_CONFIG[spreadId]
+  if (!spreadConfig) throw new Error(`Unknown spread: ${spreadId}`)
+
+  const cardCount = spreadConfig.cardCount
+  const drawnIds = new Set()
+  const results = []
+
+  for (let i = 0; i < cardCount; i++) {
+    let card
+    let attempts = 0
+    do {
+      const draw = drawSingleCard()
+      card = draw
+      attempts++
+    } while (drawnIds.has(card.card.id) && attempts < 20)
+
+    drawnIds.add(card.card.id)
+    const posConfig = spreadConfig.positions[i]
+    results.push({
+      ...card,
+      position: posConfig.name,
+      positionId: posConfig.id,
+      positionDesc: posConfig.desc
+    })
+  }
+
+  return results
+}
+
+export function saveMultiSpreadResult(spreadId, results, question = '') {
+  results.forEach(({ card, isReversed }) => {
+    Storage.addToCollection(card.id, isReversed)
+    Storage.updateStats(card.rarity, isReversed)
+  })
+
+  const record = {
+    spreadId,
+    question,
+    cards: results.map(({ card, isReversed, position, positionId, positionDesc }) => ({
+      cardId: card.id,
+      isReversed,
+      position,
+      positionId,
+      positionDesc,
+      title: isReversed ? card.reversed.title : card.upright.title,
+      meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
+      advice: isReversed ? card.reversed.advice : card.upright.advice,
+      fortune: isReversed ? card.reversed.fortune : card.upright.fortune
+    }))
+  }
+
+  checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
+  checkAchievementsAfterAction('spread')
+
+  return Storage.addMultiSpreadRecord(record)
 }

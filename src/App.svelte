@@ -9,6 +9,7 @@
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
   import DivinationPage from './pages/DivinationPage.svelte'
+  import SpreadsPage from './pages/SpreadsPage.svelte'
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
@@ -20,6 +21,7 @@
 
   const PAGES = [
     { id: 'divination', icon: '🔮', label: '占卜' },
+    { id: 'spreads', icon: '✚', label: '牌阵' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
@@ -70,6 +72,8 @@
   <div class="page-container">
     {#if currentPage === 'divination'}
       <DivinationPage />
+    {:else if currentPage === 'spreads'}
+      <SpreadsPage />
     {:else if currentPage === 'daily'}
       <DailyFortunePage />
     {:else if currentPage === 'draw'}

@@ -7,6 +7,7 @@
   export let onClose
   export let onDrawAgain
   export let customTitle = null
+  export let spreadConfig = null
 
   $: {
     if (customTitle) {
@@ -18,10 +19,16 @@
     }
   }
 
+  $: isMultiSpread = spreadType === 'multi-spread' && spreadConfig
+
   let modalTitle = ''
 
   function hasPosition(result) {
     return !!result.position
+  }
+
+  function getResultByPositionId(posId) {
+    return results.find(r => r.positionId === posId)
   }
 </script>
 
@@ -29,23 +36,51 @@
   <div class="modal-content">
     <h2 class="modal-title">{modalTitle}</h2>
 
-    <div class="result-cards">
-      {#each results as result, i}
-        <div class="result-card-wrapper">
-          {#if hasPosition(result)}
-            <div class="result-position mono">{result.position}</div>
-          {/if}
-          <CardDisplay
-            card={result.card}
-            isReversed={result.isReversed}
-            size="small"
-          />
-          <div class="mono" style="font-size: 10px; color: var(--text-dim)">
-            {result.isReversed ? '逆位' : '正位'}
+    {#if isMultiSpread}
+      <div
+        class="spread-result-layout layout-{spreadConfig.layout.type}"
+        style="--spread-color: {spreadConfig.color};"
+      >
+        {#each spreadConfig.layout.positions as lp}
+          {@const result = getResultByPositionId(lp.key)}
+          {@const posConfig = spreadConfig.positions.find(p => p.id === lp.key)}
+          <div
+            class="spread-slot"
+            style="grid-row: {lp.row + 1}; grid-column: {lp.col + 1};"
+          >
+            {#if result}
+              <div class="slot-position-name mono">{posConfig?.name || lp.key}</div>
+              <CardDisplay
+                card={result.card}
+                isReversed={result.isReversed}
+                size="small"
+              />
+              <div class="mono slot-orientation">
+                {result.isReversed ? '逆位' : '正位'}
+              </div>
+            {/if}
           </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="result-cards">
+        {#each results as result, i}
+          <div class="result-card-wrapper">
+            {#if hasPosition(result)}
+              <div class="result-position mono">{result.position}</div>
+            {/if}
+            <CardDisplay
+              card={result.card}
+              isReversed={result.isReversed}
+              size="small"
+            />
+            <div class="mono" style="font-size: 10px; color: var(--text-dim)">
+              {result.isReversed ? '逆位' : '正位'}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     <div class="reading-content">
       {#each results as result, i}
@@ -93,6 +128,50 @@
     justify-content: center;
     flex-wrap: wrap;
     margin: 20px 0;
+  }
+  .spread-result-layout {
+    animation: fade-in 0.5s ease;
+    display: grid;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 10px;
+    margin: 20px 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid var(--spread-color);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--spread-color) 20%, transparent);
+  }
+  .spread-result-layout.layout-cross {
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(3, auto);
+  }
+  .spread-result-layout.layout-relationship {
+    grid-template-columns: repeat(2, 90px);
+    grid-template-rows: repeat(2, auto);
+    gap: 16px;
+  }
+  .spread-result-layout.layout-decision {
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(3, auto);
+  }
+  .spread-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .slot-position-name {
+    font-size: 11px;
+    color: var(--spread-color);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    text-shadow: 0 0 8px var(--spread-color);
+  }
+  .slot-orientation {
+    font-size: 10px;
+    color: var(--text-dim);
   }
   .reading-content {
     width: 100%;
