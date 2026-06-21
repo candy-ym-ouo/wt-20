@@ -3,7 +3,9 @@ const STORAGE_KEYS = {
   COLLECTION: 'cyber_divination_collection',
   ACHIEVEMENTS: 'cyber_divination_achievements',
   STATS: 'cyber_divination_stats',
-  SETTINGS: 'cyber_divination_settings'
+  SETTINGS: 'cyber_divination_settings',
+  DAILY_FORTUNE: 'cyber_divination_daily_fortune',
+  DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -171,6 +173,78 @@ export const Storage = {
       console.error('Import error:', e)
       return false
     }
+  },
+
+  getDailyFortune() {
+    return safeGet(STORAGE_KEYS.DAILY_FORTUNE, {
+      lastDrawDate: null,
+      consecutiveDays: 0,
+      lastConsecutiveDate: null,
+      todayCard: null
+    })
+  },
+
+  saveDailyFortune(cardId, isReversed, reading) {
+    const today = new Date().toDateString()
+    const fortune = this.getDailyFortune()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+
+    if (fortune.lastConsecutiveDate === yesterday) {
+      fortune.consecutiveDays++
+    } else if (fortune.lastConsecutiveDate !== today) {
+      fortune.consecutiveDays = 1
+    }
+
+    fortune.lastDrawDate = Date.now()
+    fortune.lastConsecutiveDate = today
+    fortune.todayCard = {
+      cardId,
+      isReversed,
+      title: reading.title,
+      meaning: reading.meaning,
+      advice: reading.advice,
+      fortune: reading.fortune,
+      date: today
+    }
+
+    safeSet(STORAGE_KEYS.DAILY_FORTUNE, fortune)
+
+    const history = this.getDailyFortuneHistory()
+    history.unshift({
+      id: `daily_${Date.now()}`,
+      cardId,
+      isReversed,
+      title: reading.title,
+      meaning: reading.meaning,
+      advice: reading.advice,
+      fortune: reading.fortune,
+      date: today,
+      timestamp: Date.now(),
+      consecutiveDays: fortune.consecutiveDays,
+      spreadType: 'daily'
+    })
+    if (history.length > 365) {
+      history.splice(365)
+    }
+    safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, history)
+
+    return fortune
+  },
+
+  hasDrawnToday() {
+    const fortune = this.getDailyFortune()
+    if (!fortune.lastDrawDate) return false
+    const lastDraw = new Date(fortune.lastDrawDate).toDateString()
+    const today = new Date().toDateString()
+    return lastDraw === today
+  },
+
+  getDailyFortuneHistory() {
+    return safeGet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, [])
+  },
+
+  clearDailyFortuneHistory() {
+    safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, [])
   },
 
   resetAll() {

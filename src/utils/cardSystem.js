@@ -1,5 +1,5 @@
 import { CARDS } from '../data/cards.js'
-import { RARITY_CONFIG, CARD_RARITY } from '../data/constants.js'
+import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward } from '../data/constants.js'
 import { Storage } from './storage.js'
 
 export function getAllCards() {
@@ -191,4 +191,65 @@ export function searchCards(query) {
     c.name.toLowerCase().includes(q) ||
     c.keywords.some(k => k.toLowerCase().includes(q))
   )
+}
+
+function seededRandom(seed) {
+  let x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
+}
+
+function getDateSeed(dateStr) {
+  let hash = 0
+  for (let i = 0; i < dateStr.length; i++) {
+    const char = dateStr.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  return Math.abs(hash)
+}
+
+export function drawDailyFortune(consecutiveDays = 1) {
+  const today = new Date().toDateString()
+  const seed = getDateSeed(today + '_daily_fortune')
+  
+  const reward = getConsecutiveReward(consecutiveDays)
+  
+  let cardPool = [...CARDS]
+  let weights = cardPool.map(card => {
+    let weight = RARITY_CONFIG[card.rarity].weight
+    if (reward) {
+      if (reward.days >= 3 && card.rarity === CARD_RARITY.RARE) weight *= 1.5
+      if (reward.days >= 14 && card.rarity === CARD_RARITY.EPIC) weight *= 1.8
+      if (reward.days >= 30 && card.rarity === CARD_RARITY.LEGENDARY) weight *= 2.5
+    }
+    return weight
+  })
+  
+  const totalWeight = weights.reduce((a, b) => a + b, 0)
+  let random = seededRandom(seed) * totalWeight
+  
+  let selectedCard = cardPool[0]
+  for (let i = 0; i < cardPool.length; i++) {
+    random -= weights[i]
+    if (random <= 0) {
+      selectedCard = cardPool[i]
+      break
+    }
+  }
+  
+  const isReversed = seededRandom(seed + 999) < 0.3
+  const reading = isReversed ? selectedCard.reversed : selectedCard.upright
+  
+  return {
+    card: selectedCard,
+    isReversed,
+    reading
+  }
+}
+
+export function saveDailyFortuneResult(result) {
+  const { card, isReversed, reading } = result
+  Storage.addToCollection(card.id, isReversed)
+  Storage.updateStats(card.rarity, isReversed)
+  return Storage.saveDailyFortune(card.id, isReversed, reading)
 }

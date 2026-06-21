@@ -6,13 +6,15 @@
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
   import ArchivePage from './pages/ArchivePage.svelte'
+  import DailyFortunePage from './pages/DailyFortunePage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
 
-  let currentPage = 'draw'
+  let currentPage = 'daily'
   let hiddenEvent = null
   let glitchClass = ''
 
   const PAGES = [
+    { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
     { id: 'history', icon: '📜', label: '历史' },
@@ -20,6 +22,7 @@
   ]
 
   let removeListener
+  let removeNavListener
 
   onMount(() => {
     removeListener = onHiddenEvent((event) => {
@@ -27,10 +30,17 @@
       glitchClass = 'screen-glitch'
       setTimeout(() => { glitchClass = '' }, 300)
     })
+    removeNavListener = (e) => {
+      if (e.detail && PAGES.some(p => p.id === e.detail)) {
+        currentPage = e.detail
+      }
+    }
+    window.addEventListener('navigate', removeNavListener)
   })
 
   onDestroy(() => {
     if (removeListener) removeListener()
+    if (removeNavListener) window.removeEventListener('navigate', removeNavListener)
   })
 
   function closeHiddenEvent() {
@@ -40,7 +50,9 @@
 
 <div id="app-container" class="{glitchClass}">
   <div class="page-container">
-    {#if currentPage === 'draw'}
+    {#if currentPage === 'daily'}
+      <DailyFortunePage />
+    {:else if currentPage === 'draw'}
       <DrawPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />

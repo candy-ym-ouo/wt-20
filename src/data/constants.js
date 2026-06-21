@@ -51,3 +51,32 @@ export const CATEGORY_CONFIG = {
   [CARD_CATEGORY.CRYPTO]: { label: '加密', color: '#69f0ae', icon: '🔐' },
   [CARD_CATEGORY.MYSTIC]: { label: '神秘', color: '#ffab40', icon: '✨' }
 }
+
+export const CONSECUTIVE_REWARDS = [
+  { days: 1, label: '初入赛博', icon: '🎴', bonus: '开启命运之门', color: '#8a8a9a' },
+  { days: 3, label: '数据联结', icon: '🔗', bonus: '稀有卡概率提升', color: '#4fc3f7' },
+  { days: 7, label: '神经同步', icon: '🧠', bonus: '解锁专属签文解读', color: '#ba68c8' },
+  { days: 14, label: '量子纠缠', icon: '⚛️', bonus: '史诗卡概率提升', color: '#e040fb' },
+  { days: 30, label: '命运掌控', icon: '👑', bonus: '传说级命运签', color: '#ffd54f' },
+  { days: 60, label: '赛博先知', icon: '🔮', bonus: '全知视角解锁', color: '#ff5252' },
+  { days: 100, label: '永恒觉醒', icon: '🌌', bonus: '宇宙级命运连接', color: '#69f0ae' }
+]
+
+export function getConsecutiveReward(days) {
+  let currentReward = CONSECUTIVE_REWARDS[0]
+  for (const reward of CONSECUTIVE_REWARDS) {
+    if (days >= reward.days) {
+      currentReward = reward
+    }
+  }
+  return currentReward
+}
+
+export function getNextReward(days) {
+  for (const reward of CONSECUTIVE_REWARDS) {
+    if (days < reward.days) {
+      return reward
+    }
+  }
+  return null
+}
