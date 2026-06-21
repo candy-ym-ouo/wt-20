@@ -219,7 +219,8 @@
 {#if showResult && drawResults}
   <ResultModal
     results={drawResults}
-    spreadType={drawResults.length === 1 ? 'single' : 'three'}
+    spreadType="theme"
+    customTitle={`◆ ${selectedTheme.icon} ${selectedTheme.name} · ${selectedSpread.name} ◆`}
     onClose={handleCloseResult}
     onDrawAgain={handleDrawAgain}
   />

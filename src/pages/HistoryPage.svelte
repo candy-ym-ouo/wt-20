@@ -13,6 +13,7 @@
   let dailyHistory = []
   let themeHistory = []
   let selectedRecord = null
+  let selectedCustomTitle = null
   let showDetail = false
 
   function refresh() {
@@ -81,6 +82,7 @@
   }
 
   function openDivinationRecord(record) {
+    selectedCustomTitle = null
     if (record.spreadType === 'single') {
       const card = getCardById(record.cardId)
       if (!card) return
@@ -104,6 +106,7 @@
   }
 
   function openDailyRecord(record) {
+    selectedCustomTitle = null
     const card = getCardById(record.cardId)
     if (!card) return
     selectedRecord = [{
@@ -122,6 +125,7 @@
   function closeDetail() {
     showDetail = false
     selectedRecord = null
+    selectedCustomTitle = null
   }
 
   function clearHistory() {
@@ -154,6 +158,15 @@
   }
 
   function openThemeRecord(record) {
+    const theme = record._theme || THEME_CONFIG[record.theme]
+    const spreadName = theme?.spreadTypes?.find(s => s.id === record.spreadTypeId)?.name || `${record.cards.length}牌阵`
+    
+    if (theme) {
+      selectedCustomTitle = `◆ ${theme.icon} ${theme.name} · ${spreadName} ◆`
+    } else {
+      selectedCustomTitle = null
+    }
+    
     selectedRecord = record._cards.map(c => {
       const card = getCardById(c.cardId)
       return {
@@ -316,7 +329,8 @@
 {#if showDetail && selectedRecord}
   <ResultModal
     results={selectedRecord}
-    spreadType={selectedRecord.length === 1 ? 'single' : 'three'}
+    spreadType={selectedCustomTitle ? 'theme' : (selectedRecord.length === 1 ? 'single' : 'three')}
+    customTitle={selectedCustomTitle}
     onClose={closeDetail}
     onDrawAgain={closeDetail}
   />
