@@ -11,6 +11,7 @@
   import DivinationPage from './pages/DivinationPage.svelte'
   import SpreadsPage from './pages/SpreadsPage.svelte'
   import AchievementsPage from './pages/AchievementsPage.svelte'
+  import EncyclopediaPage from './pages/EncyclopediaPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
 
@@ -24,6 +25,7 @@
     { id: 'spreads', icon: '✚', label: '牌阵' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
+    { id: 'encyclopedia', icon: '📖', label: '百科' },
     { id: 'collection', icon: '📚', label: '收藏' },
     { id: 'achievements', icon: '🏆', label: '成就' },
     { id: 'history', icon: '📜', label: '历史' },
@@ -78,6 +80,8 @@
       <DailyFortunePage />
     {:else if currentPage === 'draw'}
       <DrawPage />
+    {:else if currentPage === 'encyclopedia'}
+      <EncyclopediaPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
     {:else if currentPage === 'achievements'}
