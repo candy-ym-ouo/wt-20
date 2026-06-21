@@ -5,6 +5,7 @@
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
+  import ArchivePage from './pages/ArchivePage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
 
   let currentPage = 'draw'
@@ -14,7 +15,8 @@
   const PAGES = [
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'collection', icon: '📚', label: '收藏' },
-    { id: 'history', icon: '📜', label: '历史' }
+    { id: 'history', icon: '📜', label: '历史' },
+    { id: 'archive', icon: '💾', label: '存档' }
   ]
 
   let removeListener
@@ -44,6 +46,8 @@
       <CollectionPage />
     {:else if currentPage === 'history'}
       <HistoryPage />
+    {:else if currentPage === 'archive'}
+      <ArchivePage />
     {/if}
   </div>
 
