@@ -9,6 +9,7 @@
     performFirstDraw,
     isFirstDrawing,
     firstDrawResult,
+    firstDrawHiddenEvent,
     openWorldLore,
     completeOnboarding
   } from '../utils/onboardingSystem.js'
@@ -25,6 +26,8 @@
   let drawResult = null
   let showCardReveal = false
   let isFlipping = false
+  let hiddenEvent = null
+  let hasHiddenEvent = false
 
   const unsubscribeShow = showOnboarding.subscribe(value => {
     showModal = value
@@ -58,6 +61,11 @@
     }
   })
 
+  const unsubscribeHiddenEvent = firstDrawHiddenEvent.subscribe(value => {
+    hiddenEvent = value
+    hasHiddenEvent = !!value
+  })
+
   onMount(() => {
     document.addEventListener('keydown', handleKeydown)
   })
@@ -67,6 +75,7 @@
     unsubscribeProgress()
     unsubscribeDrawing()
     unsubscribeResult()
+    unsubscribeHiddenEvent()
     document.removeEventListener('keydown', handleKeydown)
   })
 
@@ -117,7 +126,7 @@
   }
 
   function getRarityStyle(rarity) {
-    const config = TIER_CONFIG[rarity]
+    const config = RARITY_CONFIG[rarity]
     if (!config) return {}
     return {
       color: config.color,
@@ -188,23 +197,52 @@
           {/if}
 
           {#if currentStepData.tips && currentStepData.type === 'tips'}
-            <div class="tips-list">
-              {#each currentStepData.tips as tip}
-                <div class="tip-item">{tip}</div>
-              {/each}
-            </div>
+            {#if currentStepData.id === 'hidden-events' && hasHiddenEvent && hiddenEvent}
+              <div class="hidden-event-triggered">
+                <div class="triggered-badge glow-magenta">⚡ 隐藏事件已触发 ⚡</div>
+                <div class="triggered-card">
+                  <div class="triggered-title">{hiddenEvent.title}</div>
+                  <div class="triggered-desc">{hiddenEvent.description}</div>
+                  {#if hiddenEvent.reward}
+                    <div class="triggered-reward">
+                      <span class="reward-icon">🎁</span>
+                      <span class="reward-label">奖励已解锁：{hiddenEvent.reward.label}</span>
+                    </div>
+                  {/if}
+                </div>
+                <p class="triggered-hint">这只是开始，更多隐藏事件等待你去发现...</p>
+              </div>
+            {:else}
+              <div class="tips-list">
+                {#each currentStepData.tips as tip}
+                  <div class="tip-item">{tip}</div>
+                {/each}
+              </div>
+            {/if}
           {/if}
 
           {#if currentStepData.reward && currentStepData.type === 'complete'}
             <div class="reward-section">
               <div class="reward-title glow-yellow">🎁 {currentStepData.reward.title}</div>
               <div class="reward-items">
-                {#each currentStepData.reward.items as item}
-                  <div class="reward-item">
-                    <span class="reward-icon">{item.icon}</span>
-                    <span class="reward-text">{item.text}</span>
+                <div class="reward-item">
+                  <span class="reward-icon">🎴</span>
+                  <span class="reward-text">首次抽卡已完成</span>
+                </div>
+                <div class="reward-item">
+                  <span class="reward-icon">📚</span>
+                  <span class="reward-text">收藏系统已解锁</span>
+                </div>
+                {#if hasHiddenEvent && hiddenEvent}
+                  <div class="reward-item reward-highlight">
+                    <span class="reward-icon">⚡</span>
+                    <span class="reward-text">隐藏事件已触发：{hiddenEvent.title}</span>
                   </div>
-                {/each}
+                {/if}
+                <div class="reward-item">
+                  <span class="reward-icon">🔮</span>
+                  <span class="reward-text">隐藏事件探测已激活</span>
+                </div>
               </div>
             </div>
           {/if}
@@ -537,6 +575,78 @@
     border-left: 2px solid var(--accent-yellow);
   }
 
+  .hidden-event-triggered {
+    margin: 16px 0;
+    text-align: center;
+  }
+
+  .triggered-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: bold;
+    background: linear-gradient(90deg, var(--accent-magenta), var(--accent-cyan));
+    border-radius: 20px;
+    color: #fff;
+    margin-bottom: 16px;
+    animation: badgeGlow 2s ease-in-out infinite;
+  }
+
+  @keyframes badgeGlow {
+    0%, 100% { box-shadow: 0 0 10px var(--accent-magenta); }
+    50% { box-shadow: 0 0 25px var(--accent-cyan); }
+  }
+
+  .triggered-card {
+    background: linear-gradient(135deg, rgba(224, 64, 251, 0.1), rgba(0, 229, 255, 0.1));
+    border: 1px solid var(--accent-magenta);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+  }
+
+  .triggered-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--accent-magenta);
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px rgba(224, 64, 251, 0.5);
+  }
+
+  .triggered-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .triggered-reward {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 193, 7, 0.1);
+    border-radius: 8px;
+    border: 1px solid var(--accent-yellow);
+  }
+
+  .triggered-reward .reward-icon {
+    font-size: 18px;
+  }
+
+  .triggered-reward .reward-label {
+    font-size: 12px;
+    color: var(--accent-yellow);
+    font-weight: bold;
+  }
+
+  .triggered-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    font-style: italic;
+  }
+
   .reward-section {
     background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
     border: 1px solid var(--accent-yellow);
@@ -563,6 +673,19 @@
     gap: 10px;
     font-size: 13px;
     color: var(--text-secondary);
+  }
+
+  .reward-item.reward-highlight {
+    background: rgba(224, 64, 251, 0.1);
+    border: 1px solid var(--accent-magenta);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 0 -4px;
+  }
+
+  .reward-item.reward-highlight .reward-text {
+    color: var(--accent-magenta);
+    font-weight: bold;
   }
 
   .reward-icon {

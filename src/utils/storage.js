@@ -405,7 +405,7 @@ export const Storage = {
       currentStep: 0,
       firstDrawDone: false,
       worldLoreViewed: false,
-      hiddenEventUnlocked: false,
+      firstDrawHiddenEvent: null,
       startedAt: null,
       completedAt: null
     })
@@ -431,7 +431,7 @@ export const Storage = {
       currentStep: 0,
       firstDrawDone: false,
       worldLoreViewed: false,
-      hiddenEventUnlocked: false,
+      firstDrawHiddenEvent: null,
       startedAt: null,
       completedAt: null
     })

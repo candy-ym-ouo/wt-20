@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store'
 import { Storage } from './storage.js'
 import { ONBOARDING_STEPS, TOTAL_ONBOARDING_STEPS } from '../data/onboarding.js'
-import { drawSingleCard, saveDrawResult } from './cardSystem.js'
+import { drawSingleCard, saveDrawResult, onHiddenEvent } from './cardSystem.js'
 import { checkStoryTriggers, setPendingChapter } from './storySystem.js'
 import { checkAchievementsAfterAction } from './achievementSystem.js'
 
@@ -10,9 +10,11 @@ const showOnboardingStore = writable(false)
 const showWorldLoreStore = writable(false)
 const firstDrawResultStore = writable(null)
 const isDrawingStore = writable(false)
+const firstDrawHiddenEventStore = writable(null)
 
 let initialized = false
 const onboardingListeners = []
+let removeHiddenEventListener = null
 
 function init() {
   if (initialized) return
@@ -21,9 +23,23 @@ function init() {
   const onboarding = Storage.getOnboarding()
   onboardingStore.set(onboarding)
 
+  if (onboarding.firstDrawHiddenEvent) {
+    firstDrawHiddenEventStore.set(onboarding.firstDrawHiddenEvent)
+  }
+
   if (!onboarding.completed && !onboarding.startedAt) {
     showOnboardingStore.set(true)
   }
+
+  removeHiddenEventListener = onHiddenEvent((event) => {
+    const current = Storage.getOnboarding()
+    if (!current.firstDrawDone) {
+      firstDrawHiddenEventStore.set(event)
+      Storage.updateOnboarding({ firstDrawHiddenEvent: event })
+      onboardingStore.set(Storage.getOnboarding())
+      notifyListeners('firstDrawHiddenEvent', event)
+    }
+  })
 }
 
 export const onboardingState = {
@@ -58,6 +74,13 @@ export const isFirstDrawing = {
   subscribe: (run) => {
     init()
     return isDrawingStore.subscribe(run)
+  }
+}
+
+export const firstDrawHiddenEvent = {
+  subscribe: (run) => {
+    init()
+    return firstDrawHiddenEventStore.subscribe(run)
   }
 }
 
@@ -198,9 +221,6 @@ export async function performFirstDraw() {
       setPendingChapter(storyTriggers[0])
     }
 
-    Storage.updateOnboarding({ hiddenEventUnlocked: true })
-    onboardingStore.set(Storage.getOnboarding())
-
     checkAchievementsAfterAction('draw')
 
     notifyListeners('firstDraw', result)
@@ -219,6 +239,7 @@ export function resetOnboarding() {
   Storage.resetOnboarding()
   onboardingStore.set(Storage.getOnboarding())
   firstDrawResultStore.set(null)
+  firstDrawHiddenEventStore.set(null)
   showOnboardingStore.set(true)
   notifyListeners('reset', {})
 }
