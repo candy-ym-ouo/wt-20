@@ -534,6 +534,21 @@ export const Storage = {
     return false
   },
 
+  getRecordById(recordType, recordId) {
+    const typeMap = {
+      'divination': 'getDrawHistory',
+      'daily': 'getDailyFortuneHistory',
+      'theme': 'getThemeDivinationHistory',
+      'spread': 'getMultiSpreadHistory',
+      'question-driven': 'getQuestionDrivenHistory'
+    }
+    const getMethod = typeMap[recordType]
+    if (!getMethod) return null
+
+    const history = this[getMethod]()
+    return history.find(r => r.id === recordId) || null
+  },
+
   getRecordNote(recordType, recordId) {
     const typeMap = {
       'divination': 'getDrawHistory',

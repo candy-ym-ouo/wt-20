@@ -22,6 +22,7 @@
   import { getThemePack } from '../data/themePacks.js'
 
   let step = 'question'
+  export let navParams = {}
   let question = ''
   let context = ''
   let selectedUrgency = URGENCY_LEVELS[1]
@@ -35,8 +36,35 @@
   let ownedItems = {}
   let currentRecordId = null
   let currentSourceRecord = null
+  let incomingSourceRecord = null
+  let fromRecord = null
+  let fromType = null
+  let showSourceHint = false
   let currentPackId = getCurrentPackId()
   let removePackListener
+
+  $: {
+    if (navParams && Object.keys(navParams).length > 0) {
+      if (navParams.prefillQuestion !== undefined && navParams.prefillQuestion !== null) {
+        question = navParams.prefillQuestion
+      }
+      if (navParams.prefillContext !== undefined && navParams.prefillContext !== null) {
+        context = navParams.prefillContext
+      }
+      fromRecord = navParams.fromRecord || null
+      fromType = navParams.fromType || null
+      
+      if (fromRecord && fromType) {
+        incomingSourceRecord = Storage.getRecordById(fromType, fromRecord)
+        if (incomingSourceRecord) {
+          showSourceHint = true
+          setTimeout(() => {
+            showSourceHint = false
+          }, 5000)
+        }
+      }
+    }
+  }
 
   function refreshStats() {
     stats = Storage.getStats(currentPackId)
@@ -113,7 +141,8 @@
       selectedSpreadRec,
       selectedSpreadMeta,
       results,
-      ''
+      '',
+      incomingSourceRecord
     )
     currentRecordId = savedRecord[0]?.id
     currentSourceRecord = savedRecord[0] || null
@@ -136,6 +165,11 @@
     selectedUrgency = URGENCY_LEVELS[1]
     currentRecordId = null
     currentSourceRecord = null
+    incomingSourceRecord = null
+    fromRecord = null
+    fromType = null
+    showSourceHint = false
+    navParams = {}
     step = 'question'
   }
 
@@ -175,6 +209,22 @@
   <div class="pack-info-badge" style="background: {currentPack.color + '22'}; border-color: {currentPack.color}">
     <span class="pack-icon">{currentPack.icon}</span>
     <span>当前使用「{currentPack.name}」卡包进行占卜</span>
+  </div>
+{/if}
+
+{#if incomingSourceRecord && showSourceHint}
+  <div class="source-hint" on:click={() => showSourceHint = false}>
+    <div class="source-hint-icon">🔗</div>
+    <div class="source-hint-content">
+      <div class="source-hint-title">从历史记录继续解读</div>
+      <div class="source-hint-question">
+        {incomingSourceRecord.questionContext?.question || incomingSourceRecord.question || '历史占卜记录'}
+      </div>
+      <div class="source-hint-time">
+        {new Date(incomingSourceRecord.createdAt || incomingSourceRecord.date).toLocaleString('zh-CN')}
+      </div>
+    </div>
+    <div class="source-hint-close">×</div>
   </div>
 {/if}
 
@@ -436,6 +486,71 @@
 {/if}
 
 <style>
+  .source-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(105, 240, 174, 0.1), rgba(0, 229, 255, 0.08));
+    border: 1px solid var(--accent-cyan);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .source-hint-icon {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  .source-hint-content {
+    flex: 1;
+  }
+
+  .source-hint-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .source-hint-question {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+
+  .source-hint-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .source-hint-close {
+    font-size: 20px;
+    color: var(--text-dim);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .source-hint-close:hover {
+    color: var(--accent-red);
+  }
+
   .flow-indicator {
     display: flex;
     align-items: center;

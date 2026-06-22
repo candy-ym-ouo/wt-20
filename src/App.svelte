@@ -22,6 +22,7 @@
 
   let currentPage = 'question-driven'
   let historyInitialTab = 'divination'
+  let navParams = {}
   let hiddenEvent = null
   let visitorModalOpen = false
   let glitchClass = ''
@@ -74,11 +75,13 @@
       if (typeof detail === 'string') {
         if (PAGES.some(p => p.id === detail)) {
           historyInitialTab = 'divination'
+          navParams = {}
           currentPage = detail
         }
       } else if (typeof detail === 'object') {
         if (PAGES.some(p => p.id === detail.page)) {
           historyInitialTab = detail.tab || 'divination'
+          navParams = detail.params || {}
           currentPage = detail.page
         }
       }
@@ -100,7 +103,7 @@
 <div id="app-container" class="{glitchClass}">
   <div class="page-container">
     {#if currentPage === 'question-driven'}
-      <QuestionDrivenPage />
+      <QuestionDrivenPage navParams={navParams} />
     {:else if currentPage === 'divination'}
       <DivinationPage />
     {:else if currentPage === 'daily'}
@@ -128,7 +131,10 @@
     {#each PAGES as page}
       <div
         class="nav-item {currentPage === page.id ? 'active' : ''}"
-        on:click={() => (currentPage = page.id)}
+        on:click={() => {
+          navParams = {}
+          currentPage = page.id
+        }}
       >
         <span class="nav-icon">{page.icon}</span>
         <span>{page.label}</span>

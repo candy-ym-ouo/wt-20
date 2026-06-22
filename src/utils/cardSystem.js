@@ -1066,7 +1066,7 @@ export function getSpreadMeta(recommendation) {
   }
 }
 
-export function saveQuestionDrivenResult(questionContext, recommendation, spreadMeta, results, userInterpretation = '') {
+export function saveQuestionDrivenResult(questionContext, recommendation, spreadMeta, results, userInterpretation = '', sourceRecord = null) {
   const packId = results[0]?.packId || getCurrentPackId()
   results.forEach(({ card, isReversed }) => {
     Storage.addToCollection(card.id, isReversed, packId)
@@ -1089,6 +1089,12 @@ export function saveQuestionDrivenResult(questionContext, recommendation, spread
     },
     userInterpretation,
     packId,
+    sourceRecord: sourceRecord ? {
+      id: sourceRecord.id,
+      type: sourceRecord.recordType || sourceRecord.type,
+      question: sourceRecord.questionContext?.question || sourceRecord.question,
+      createdAt: sourceRecord.createdAt || sourceRecord.date
+    } : null,
     cards: results.map(({ card, isReversed, position, positionId, positionDesc, packId }) => ({
       cardId: card.id,
       isReversed,

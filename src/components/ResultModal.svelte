@@ -261,6 +261,24 @@
       </div>
     {/if}
 
+    {#if results?.[0]?.sourceRecord}
+      <div class="source-record-block">
+        <div class="source-record-header">
+          <span class="source-icon">🔗</span>
+          <span class="source-title">来源记录</span>
+          <span class="source-badge">关联解读</span>
+        </div>
+        <div class="source-question">
+          {results[0].sourceRecord.question || '历史占卜记录'}
+        </div>
+        <div class="source-meta">
+          <span class="source-type">{results[0].sourceRecord.type}</span>
+          <span class="source-dot">·</span>
+          <span class="source-date">{new Date(results[0].sourceRecord.createdAt).toLocaleDateString('zh-CN')}</span>
+        </div>
+      </div>
+    {/if}
+
     {#if isMultiSpread}
       <div
         class="spread-result-layout layout-{spreadConfig.layout.type}"
@@ -598,6 +616,76 @@
   .context-text {
     color: var(--text-primary);
     flex: 1;
+  }
+
+  .source-record-block {
+    background: linear-gradient(135deg, rgba(105, 240, 174, 0.08), rgba(0, 229, 255, 0.05));
+    border: 1px solid var(--accent-cyan);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .source-record-block::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+  }
+
+  .source-record-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .source-icon {
+    font-size: 14px;
+  }
+
+  .source-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+    flex: 1;
+  }
+
+  .source-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: rgba(105, 240, 174, 0.2);
+    color: var(--accent-green);
+    border-radius: 10px;
+    font-family: var(--font-mono);
+  }
+
+  .source-question {
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 4px;
+    padding-left: 2px;
+  }
+
+  .source-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    padding-left: 2px;
+  }
+
+  .source-type {
+    text-transform: uppercase;
   }
 
   .question-block {
