@@ -220,6 +220,64 @@ export function getOwnedItemsByType(type) {
   )
 }
 
+export function getEquippedItemData(type) {
+  init()
+  const itemId = getEquippedItem(type)
+  if (!itemId) return null
+  return getShopItemById(itemId)
+}
+
+export function getCurrentSkin() {
+  return getEquippedItemData(SHOP_ITEM_TYPE.SKIN)
+}
+
+export function getCurrentCardBack() {
+  return getEquippedItemData(SHOP_ITEM_TYPE.CARD_BACK)
+}
+
+export function getCurrentAnimation() {
+  return getEquippedItemData(SHOP_ITEM_TYPE.ANIMATION)
+}
+
+export function getCurrentBorder() {
+  return getEquippedItemData(SHOP_ITEM_TYPE.CARD_BORDER)
+}
+
+export function getCurrentTitle() {
+  return getEquippedItemData(SHOP_ITEM_TYPE.SPECIAL_TITLE)
+}
+
+export function getSkinColor() {
+  const skin = getCurrentSkin()
+  return skin?.preview?.color || null
+}
+
+export function getCardBackColor() {
+  const cardBack = getCurrentCardBack()
+  return cardBack?.preview?.color || null
+}
+
+export function getBorderColor() {
+  const border = getCurrentBorder()
+  return border?.preview?.color || null
+}
+
+export function hasSkin() {
+  return !!getCurrentSkin()
+}
+
+export function hasCardBack() {
+  return !!getCurrentCardBack()
+}
+
+export function hasAnimation() {
+  return !!getCurrentAnimation()
+}
+
+export function hasBorder() {
+  return !!getCurrentBorder()
+}
+
 export function refreshShopData() {
   init()
   const owned = Storage.getOwnedShopItems()

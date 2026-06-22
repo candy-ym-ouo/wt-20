@@ -297,6 +297,47 @@
     grid-template-columns: repeat(3, 80px);
     grid-template-rows: repeat(3, auto);
   }
+  .spread-result-layout.layout-celestial {
+    grid-template-columns: repeat(3, 70px);
+    grid-template-rows: repeat(3, auto);
+  }
+  .spread-result-layout.layout-abyss {
+    grid-template-columns: repeat(6, 40px);
+    grid-template-rows: repeat(4, auto);
+    gap: 6px;
+  }
+  .spread-result-layout.layout-abyss .slot-position-name {
+    font-size: 8px;
+  }
+  .spread-result-layout.layout-abyss :global(.card-visual.small) {
+    width: 36px;
+    height: 52px;
+  }
+  .spread-result-layout.layout-abyss :global(.card-visual.small .card-symbol) {
+    font-size: 18px;
+  }
+  .spread-result-layout.layout-abyss :global(.card-visual.small .card-name) {
+    display: none;
+  }
+  .spread-result-layout.layout-temporal {
+    grid-template-columns: repeat(5, 50px);
+    grid-template-rows: repeat(4, auto);
+    gap: 4px;
+  }
+  .spread-result-layout.layout-temporal .slot-position-name {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+  .spread-result-layout.layout-temporal :global(.card-visual.small) {
+    width: 42px;
+    height: 60px;
+  }
+  .spread-result-layout.layout-temporal :global(.card-visual.small .card-symbol) {
+    font-size: 22px;
+  }
+  .spread-result-layout.layout-temporal :global(.card-visual.small .card-name) {
+    display: none;
+  }
   .spread-slot {
     display: flex;
     flex-direction: column;

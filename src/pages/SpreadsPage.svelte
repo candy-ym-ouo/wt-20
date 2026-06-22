@@ -5,6 +5,12 @@
   import { MULTI_SPREAD_CONFIG, getAllMultiSpreads } from '../data/constants.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
+  import {
+    ownsItem,
+    equippedShopItems,
+    ownedShopItems
+  } from '../utils/fateShopSystem.js'
+  import { getShopItemById } from '../data/fateShop.js'
 
   let step = 'select-spread'
   let selectedSpread = null
@@ -14,13 +20,34 @@
   let showResult = false
   let stats = Storage.getStats()
   let spreads = getAllMultiSpreads()
+  let ownedItems = {}
 
   function refreshStats() {
     stats = Storage.getStats()
   }
 
+  function isSpreadUnlocked(spread) {
+    if (!spread.special) return true
+    return ownsItem(spread.shopItemId)
+  }
+
+  function getShopItemForSpread(spread) {
+    if (!spread.special) return null
+    return getShopItemById(spread.shopItemId)
+  }
+
+  function goToShop() {
+    const event = new CustomEvent('navigate', { detail: 'fate-shop' })
+    window.dispatchEvent(event)
+  }
+
   function selectSpread(spreadId) {
-    selectedSpread = MULTI_SPREAD_CONFIG[spreadId]
+    const spread = MULTI_SPREAD_CONFIG[spreadId]
+    if (!isSpreadUnlocked(spread)) {
+      goToShop()
+      return
+    }
+    selectedSpread = spread
     step = 'confirm'
   }
 
@@ -68,6 +95,10 @@
 
   onMount(() => {
     refreshStats()
+    const unsubscribe = ownedShopItems.subscribe(items => {
+      ownedItems = items
+    })
+    return () => unsubscribe && unsubscribe()
   })
 </script>
 
@@ -93,9 +124,9 @@
 </div>
 
 {#if step === 'select-spread'}
-  <div class="section-title">选择牌阵类型</div>
+  <div class="section-title">经典牌阵</div>
   <div class="spread-grid">
-    {#each spreads as spread}
+    {#each spreads.filter(s => !s.special) as spread}
       <div
         class="spread-card"
         style="--theme-color: {spread.color}; --theme-glow: {spread.glowColor}"
@@ -124,6 +155,73 @@
         <div class="spread-footer">
           <span class="spread-count">{spread.cardCount} 张牌</span>
           <span class="spread-enter">开始占卜 →</span>
+        </div>
+      </div>
+    {/each}
+  </div>
+
+  <div class="section-title" style="margin-top: 24px;">
+    ✨ 特殊占卜
+    <span class="section-subtitle">（命运商店解锁）</span>
+  </div>
+  <div class="spread-grid">
+    {#each spreads.filter(s => s.special) as spread}
+      {@const unlocked = isSpreadUnlocked(spread)}
+      {@const shopItem = getShopItemForSpread(spread)}
+      <div
+        class="spread-card {unlocked ? '' : 'locked'} {spread.special ? 'special-spread' : ''}"
+        style="--theme-color: {spread.color}; --theme-glow: {spread.glowColor}"
+        on:click={() => selectSpread(spread.id)}
+      >
+        {#if !unlocked}
+          <div class="lock-overlay">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-text">
+              {#if shopItem}
+                <div class="lock-title">{shopItem.name}</div>
+                <div class="lock-price">
+                  <span class="price-icon">🏆</span>
+                  {shopItem.price} 成就点数
+                </div>
+                <div class="lock-hint">点击前往命运商店解锁</div>
+              {:else}
+                <div class="lock-title">未解锁</div>
+                <div class="lock-hint">前往命运商店解锁</div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <div class="spread-header">
+          <div class="spread-icon">{spread.icon}</div>
+          <div class="spread-main-info">
+            <div class="spread-name">
+              {spread.name}
+              {#if spread.special}
+                <span class="special-badge">特殊</span>
+              {/if}
+            </div>
+            <div class="spread-desc">{spread.description}</div>
+          </div>
+        </div>
+
+        <div class="spread-layout layout-{spread.layout.type}">
+          {#each spread.layout.positions.slice(0, 6) as lp}
+            <div
+              class="layout-slot"
+              style="grid-row: {lp.row + 1}; grid-column: {lp.col + 1};"
+            >
+              <div class="slot-label">{spread.positions.find(p => p.id === lp.key)?.name?.slice(0, 4) || lp.key}</div>
+              <div class="slot-card">🎴</div>
+            </div>
+          {/each}
+        </div>
+
+        <div class="spread-footer">
+          <span class="spread-count">{spread.cardCount} 张牌</span>
+          <span class="spread-enter">
+            {unlocked ? '开始占卜 →' : '前往解锁 →'}
+          </span>
         </div>
       </div>
     {/each}
@@ -578,5 +676,133 @@
   .glow-magenta {
     color: var(--accent-magenta);
     text-shadow: 0 0 10px var(--accent-magenta);
+  }
+
+  .section-subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: 8px;
+    font-weight: normal;
+  }
+
+  .spread-card.locked {
+    position: relative;
+    overflow: hidden;
+    opacity: 0.9;
+  }
+
+  .spread-card.locked:hover {
+    transform: translateY(-2px);
+  }
+
+  .lock-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border-radius: 12px;
+  }
+
+  .lock-icon {
+    font-size: 36px;
+    animation: lock-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes lock-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .lock-text {
+    text-align: center;
+  }
+
+  .lock-title {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--accent-yellow);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .lock-price {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .price-icon {
+    font-size: 14px;
+  }
+
+  .lock-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .special-spread {
+    border: 2px solid var(--theme-color);
+    box-shadow: 0 0 20px var(--theme-glow);
+  }
+
+  .special-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 2px 8px;
+    background: var(--theme-glow);
+    color: var(--theme-color);
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .layout-celestial {
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(3, 70px);
+  }
+
+  .layout-abyss {
+    grid-template-columns: repeat(6, 30px);
+    grid-template-rows: repeat(4, 50px);
+    gap: 4px;
+  }
+
+  .layout-abyss .slot-card {
+    width: 28px;
+    height: 40px;
+    font-size: 12px;
+  }
+
+  .layout-abyss .slot-label {
+    font-size: 8px;
+  }
+
+  .layout-temporal {
+    grid-template-columns: repeat(5, 40px);
+    grid-template-rows: repeat(4, 55px);
+    gap: 4px;
+  }
+
+  .layout-temporal .slot-card {
+    width: 32px;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .layout-temporal .slot-label {
+    font-size: 7px;
   }
 </style>

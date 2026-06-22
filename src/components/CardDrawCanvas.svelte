@@ -2,6 +2,13 @@
   import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte'
   import { Application, Container, Graphics, Text } from 'pixi.js'
   import { RARITY_CONFIG, CATEGORY_CONFIG } from '../data/constants.js'
+  import {
+    getCurrentCardBack,
+    getCurrentAnimation,
+    getCurrentSkin,
+    getCurrentBorder,
+    equippedShopItems
+  } from '../utils/fateShopSystem.js'
 
   export let isAnimating = false
 
@@ -14,11 +21,62 @@
   let particles = []
   let animationFrame = null
   let initialized = false
+  let currentCardBack = null
+  let currentAnimation = null
+  let currentSkin = null
+  let currentBorder = null
 
   const CARD_WIDTH = 120
   const CARD_HEIGHT = 180
 
+  function hexToColor(hex) {
+    if (!hex || hex === 'rainbow') return 0x00e5ff
+    return parseInt(hex.replace('#', ''), 16)
+  }
+
+  function getCardBackColor() {
+    return currentCardBack?.preview?.color
+      ? hexToColor(currentCardBack.preview.color)
+      : 0x00e5ff
+  }
+
+  function getCardBackColorSecondary() {
+    return currentCardBack?.preview?.color
+      ? hexToColor(currentCardBack.preview.color)
+      : 0xe040fb
+  }
+
+  function getSkinColor() {
+    return currentSkin?.preview?.color
+      ? hexToColor(currentSkin.preview.color)
+      : null
+  }
+
+  function getBorderColor() {
+    return currentBorder?.preview?.color
+      ? hexToColor(currentBorder.preview.color)
+      : null
+  }
+
+  function updateShopItems() {
+    currentCardBack = getCurrentCardBack()
+    currentAnimation = getCurrentAnimation()
+    currentSkin = getCurrentSkin()
+    currentBorder = getCurrentBorder()
+  }
+
   onMount(async () => {
+    updateShopItems()
+    const unsubscribe = equippedShopItems.subscribe(() => {
+      updateShopItems()
+      if (initialized && app && !isAnimating) {
+        const width = app.renderer.width
+        const height = app.renderer.height
+        createDeck(width, height)
+        createParticleField(width, height)
+      }
+    })
+
     await tick()
     await new Promise(r => setTimeout(r, 100))
     try {
@@ -90,40 +148,105 @@
     }
   }
 
+  function getCardBackPattern() {
+    const pattern = currentCardBack?.preview?.pattern
+    return pattern || 'default'
+  }
+
   function createCardBack(x, y) {
     const container = new Container()
     container.x = x
     container.y = y
 
+    const primaryColor = getCardBackColor()
+    const secondaryColor = getCardBackColorSecondary()
+    const patternType = getCardBackPattern()
+
     try {
       const bg = new Graphics()
       bg.roundRect(-CARD_WIDTH / 2, -CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 8)
       bg.fill(0x1a1a3a)
-      bg.stroke({ color: 0x00e5ff, width: 2, alpha: 0.6 })
+      bg.stroke({ color: primaryColor, width: 2, alpha: 0.6 })
       container.addChild(bg)
 
       const pattern = new Graphics()
-      for (let i = 0; i < 5; i++) {
-        for (let j = 0; j < 7; j++) {
-          const px = -CARD_WIDTH / 2 + 15 + i * 22
-          const py = -CARD_HEIGHT / 2 + 20 + j * 22
-          pattern.circle(px, py, 2)
-          pattern.fill({ color: 0x00e5ff, alpha: 0.3 })
+      if (patternType === 'hex_grid') {
+        for (let row = 0; row < 6; row++) {
+          for (let col = 0; col < 4; col++) {
+            const px = -CARD_WIDTH / 2 + 20 + col * 25 + (row % 2) * 12
+            const py = -CARD_HEIGHT / 2 + 25 + row * 28
+            pattern.poly([
+              px, py - 8,
+              px + 10, py - 4,
+              px + 10, py + 4,
+              px, py + 8,
+              px - 10, py + 4,
+              px - 10, py - 4
+            ])
+            pattern.stroke({ color: primaryColor, alpha: 0.3, width: 1 })
+          }
+        }
+      } else if (patternType === 'circuit') {
+        for (let i = 0; i < 4; i++) {
+          const y = -CARD_HEIGHT / 2 + 30 + i * 40
+          pattern.moveTo(-CARD_WIDTH / 2 + 15, y)
+          pattern.lineTo(-CARD_WIDTH / 2 + 40, y)
+          pattern.lineTo(-CARD_WIDTH / 2 + 50, y + 10)
+          pattern.lineTo(CARD_WIDTH / 2 - 30, y + 10)
+          pattern.lineTo(CARD_WIDTH / 2 - 15, y - 5)
+          pattern.stroke({ color: primaryColor, alpha: 0.4, width: 1.5 })
+        }
+      } else if (patternType === 'runes') {
+        const runes = ['◈', '◇', '△', '○', '☆', '◎', '⬡', '⎔']
+        for (let i = 0; i < 8; i++) {
+          const px = -CARD_WIDTH / 2 + 20 + (i % 4) * 25
+          const py = -CARD_HEIGHT / 2 + 40 + Math.floor(i / 4) * 60
+          const runeText = new Text({
+            text: runes[i],
+            style: {
+              fontFamily: 'Courier New',
+              fontSize: 16,
+              fill: primaryColor,
+              align: 'center'
+            }
+          })
+          runeText.anchor.set(0.5)
+          runeText.x = px
+          runeText.y = py
+          runeText.alpha = 0.4
+          container.addChild(runeText)
+        }
+      } else if (patternType === 'stars') {
+        for (let i = 0; i < 15; i++) {
+          const px = -CARD_WIDTH / 2 + 10 + Math.random() * (CARD_WIDTH - 20)
+          const py = -CARD_HEIGHT / 2 + 15 + Math.random() * (CARD_HEIGHT - 30)
+          const size = Math.random() * 2 + 1
+          pattern.circle(px, py, size)
+          pattern.fill({ color: primaryColor, alpha: 0.3 + Math.random() * 0.4 })
+        }
+      } else {
+        for (let i = 0; i < 5; i++) {
+          for (let j = 0; j < 7; j++) {
+            const px = -CARD_WIDTH / 2 + 15 + i * 22
+            const py = -CARD_HEIGHT / 2 + 20 + j * 22
+            pattern.circle(px, py, 2)
+            pattern.fill({ color: primaryColor, alpha: 0.3 })
+          }
         }
       }
       container.addChild(pattern)
 
       const borderInner = new Graphics()
       borderInner.roundRect(-CARD_WIDTH / 2 + 8, -CARD_HEIGHT / 2 + 8, CARD_WIDTH - 16, CARD_HEIGHT - 16, 4)
-      borderInner.stroke({ color: 0xe040fb, width: 1, alpha: 0.4 })
+      borderInner.stroke({ color: secondaryColor, width: 1, alpha: 0.4 })
       container.addChild(borderInner)
 
       const centerSymbol = new Text({
-        text: '◆',
+        text: currentCardBack?.icon || '◆',
         style: {
           fontFamily: 'Courier New',
-          fontSize: 36,
-          fill: 0x00e5ff,
+          fontSize: 32,
+          fill: primaryColor,
           align: 'center'
         }
       })
@@ -132,11 +255,11 @@
       container.addChild(centerSymbol)
 
       const topText = new Text({
-        text: 'CYBER',
+        text: 'FATE',
         style: {
           fontFamily: 'Courier New',
           fontSize: 10,
-          fill: 0x00e5ff,
+          fill: primaryColor,
           align: 'center'
         }
       })
@@ -146,11 +269,11 @@
       container.addChild(topText)
 
       const botText = new Text({
-        text: 'DIVINATION',
+        text: currentCardBack?.name?.slice(0, 10).toUpperCase() || 'DIVINATION',
         style: {
           fontFamily: 'Courier New',
-          fontSize: 9,
-          fill: 0xe040fb,
+          fontSize: 8,
+          fill: secondaryColor,
           align: 'center'
         }
       })
@@ -170,6 +293,9 @@
     const rarity = RARITY_CONFIG[card.rarity]
     const category = CATEGORY_CONFIG[card.category]
     const rarityColor = parseInt(rarity.color.replace('#', ''), 16)
+    const skinColor = getSkinColor()
+    const borderColor = getBorderColor()
+    const primaryColor = skinColor || rarityColor
 
     const container = new Container()
     container.x = x
@@ -179,15 +305,22 @@
       const bg = new Graphics()
       bg.roundRect(-CARD_WIDTH / 2, -CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 8)
       bg.fill(0x12122a)
-      bg.stroke({ color: rarityColor, width: 2.5 })
+      bg.stroke({ color: primaryColor, width: 2.5 })
       container.addChild(bg)
+
+      if (borderColor) {
+        const borderGlow = new Graphics()
+        borderGlow.roundRect(-CARD_WIDTH / 2 - 3, -CARD_HEIGHT / 2 - 3, CARD_WIDTH + 6, CARD_HEIGHT + 6, 10)
+        borderGlow.stroke({ color: borderColor, width: 2, alpha: 0.5 })
+        container.addChildAt(borderGlow, 0)
+      }
 
       const numberText = new Text({
         text: String(card.number).padStart(2, '0'),
         style: {
           fontFamily: 'Courier New',
           fontSize: 12,
-          fill: rarityColor
+          fill: primaryColor
         }
       })
       numberText.anchor.set(0, 0)
@@ -223,7 +356,7 @@
         style: {
           fontFamily: 'Courier New',
           fontSize: 12,
-          fill: rarityColor,
+          fill: primaryColor,
           align: 'center',
           wordWrap: true,
           wordWrapWidth: CARD_WIDTH - 20
@@ -238,7 +371,7 @@
         style: {
           fontFamily: 'Courier New',
           fontSize: 9,
-          fill: rarityColor,
+          fill: primaryColor,
           align: 'center'
         }
       })
@@ -263,13 +396,16 @@
     })
     particles = []
 
+    const primaryColor = getCardBackColor()
+    const secondaryColor = getCardBackColorSecondary()
+
     for (let i = 0; i < 20; i++) {
       try {
         const particle = new Graphics()
         const size = Math.random() * 2 + 1
         particle.circle(0, 0, size)
         particle.fill({
-          color: Math.random() > 0.5 ? 0x00e5ff : 0xe040fb,
+          color: Math.random() > 0.5 ? primaryColor : secondaryColor,
           alpha: Math.random() * 0.5 + 0.1
         })
         particle.x = Math.random() * width
@@ -311,6 +447,169 @@
     animationFrame = requestAnimationFrame(animate)
   }
 
+  async function playNeonBurst(results, width, height) {
+    const centerX = width / 2
+    const centerY = height / 2
+
+    const burstParticles = []
+    for (let i = 0; i < 30; i++) {
+      try {
+        const p = new Graphics()
+        const color = i % 2 === 0 ? 0x00e5ff : 0xe040fb
+        p.circle(0, 0, Math.random() * 4 + 2)
+        p.fill({ color, alpha: 1 })
+        p.x = centerX
+        p.y = centerY
+        const angle = (i / 30) * Math.PI * 2
+        const speed = 3 + Math.random() * 4
+        p.vx = Math.cos(angle) * speed
+        p.vy = Math.sin(angle) * speed
+        p.life = 1
+        burstParticles.push(p)
+        app.stage.addChild(p)
+      } catch (e) {}
+    }
+
+    for (let f = 0; f < 20; f++) {
+      burstParticles.forEach(p => {
+        p.x += p.vx
+        p.y += p.vy
+        p.life -= 0.05
+        p.alpha = Math.max(0, p.life)
+        p.scale.set(p.life)
+      })
+      await new Promise(r => setTimeout(r, 20))
+    }
+
+    burstParticles.forEach(p => {
+      if (p.parent) p.parent.removeChild(p)
+    })
+  }
+
+  async function playCrystalShatter(results, width, height) {
+    const centerX = width / 2
+    const centerY = height / 2
+
+    const shards = []
+    for (let i = 0; i < 12; i++) {
+      try {
+        const shard = new Graphics()
+        const color = i % 2 === 0 ? 0xe040fb : 0x00e5ff
+        shard.moveTo(0, 0)
+        shard.lineTo(10 + Math.random() * 10, -5 + Math.random() * 10)
+        shard.lineTo(5 + Math.random() * 5, 15 + Math.random() * 10)
+        shard.closePath()
+        shard.fill({ color, alpha: 0.8 })
+        shard.x = centerX
+        shard.y = centerY
+        const angle = (i / 12) * Math.PI * 2
+        const speed = 2 + Math.random() * 3
+        shard.vx = Math.cos(angle) * speed
+        shard.vy = Math.sin(angle) * speed
+        shard.vr = (Math.random() - 0.5) * 0.2
+        shard.life = 1
+        shards.push(shard)
+        app.stage.addChild(shard)
+      } catch (e) {}
+    }
+
+    for (let f = 0; f < 25; f++) {
+      shards.forEach(s => {
+        s.x += s.vx
+        s.y += s.vy
+        s.rotation += s.vr
+        s.life -= 0.04
+        s.alpha = Math.max(0, s.life)
+      })
+      await new Promise(r => setTimeout(r, 25))
+    }
+
+    shards.forEach(s => {
+      if (s.parent) s.parent.removeChild(s)
+    })
+  }
+
+  async function playPhoenixRebirth(results, width, height) {
+    const centerX = width / 2
+    const centerY = height / 2
+
+    const fireParticles = []
+    for (let i = 0; i < 40; i++) {
+      try {
+        const p = new Graphics()
+        const colors = [0xff5252, 0xffab40, 0xffd54f, 0xff6e40]
+        const color = colors[Math.floor(Math.random() * colors.length)]
+        p.circle(0, 0, Math.random() * 5 + 3)
+        p.fill({ color, alpha: 1 })
+        p.x = centerX + (Math.random() - 0.5) * 40
+        p.y = centerY + 20
+        p.vy = -(1 + Math.random() * 3)
+        p.vx = (Math.random() - 0.5) * 2
+        p.life = 1
+        fireParticles.push(p)
+        app.stage.addChild(p)
+      } catch (e) {}
+    }
+
+    for (let f = 0; f < 30; f++) {
+      fireParticles.forEach(p => {
+        p.x += p.vx
+        p.y += p.vy
+        p.vy -= 0.05
+        p.life -= 0.03
+        p.alpha = Math.max(0, p.life)
+        const s = 0.5 + p.life * 0.5
+        p.scale.set(s)
+      })
+      await new Promise(r => setTimeout(r, 25))
+    }
+
+    fireParticles.forEach(p => {
+      if (p.parent) p.parent.removeChild(p)
+    })
+  }
+
+  async function playQuantumTeleport(results, width, height) {
+    const centerX = width / 2
+    const centerY = height / 2
+
+    const quantumParticles = []
+    for (let i = 0; i < 25; i++) {
+      try {
+        const p = new Graphics()
+        const color = i % 2 === 0 ? 0x7c4dff : 0x00e5ff
+        p.circle(0, 0, Math.random() * 3 + 2)
+        p.fill({ color, alpha: 1 })
+        const angle = Math.random() * Math.PI * 2
+        const dist = 30 + Math.random() * 50
+        p.startX = centerX + Math.cos(angle) * dist
+        p.startY = centerY + Math.sin(angle) * dist
+        p.x = p.startX
+        p.y = p.startY
+        p.targetX = centerX
+        p.targetY = centerY
+        p.life = 1
+        quantumParticles.push(p)
+        app.stage.addChild(p)
+      } catch (e) {}
+    }
+
+    for (let f = 0; f < 20; f++) {
+      const t = f / 20
+      quantumParticles.forEach(p => {
+        p.x = p.startX + (p.targetX - p.startX) * t
+        p.y = p.startY + (p.targetY - p.startY) * t
+        p.alpha = 1 - t * 0.5
+        p.scale.set(1 + t * 0.5)
+      })
+      await new Promise(r => setTimeout(r, 25))
+    }
+
+    quantumParticles.forEach(p => {
+      if (p.parent) p.parent.removeChild(p)
+    })
+  }
+
   export async function playDrawAnimation(results) {
     if (!app || !deckContainer || !initialized) {
       isAnimating = false
@@ -342,6 +641,18 @@
     backCard.scale.set(1)
     backCard.x = width / 2
     backCard.y = height / 2
+
+    const animationType = currentAnimation?.preview?.effect
+
+    if (animationType === 'neon_burst') {
+      await playNeonBurst(results, width, height)
+    } else if (animationType === 'crystal_shatter') {
+      await playCrystalShatter(results, width, height)
+    } else if (animationType === 'phoenix_rebirth') {
+      await playPhoenixRebirth(results, width, height)
+    } else if (animationType === 'quantum_teleport') {
+      await playQuantumTeleport(results, width, height)
+    }
 
     const expandFrames = 12
     for (let f = 0; f < expandFrames; f++) {
@@ -381,12 +692,15 @@
         await new Promise(r => setTimeout(r, 25))
       }
 
-      if (result.card.rarity === 'epic' || result.card.rarity === 'legendary') {
+      const hasSpecialAnimation = result.card.rarity === 'epic' || result.card.rarity === 'legendary' || currentBorder
+      if (hasSpecialAnimation) {
         try {
-          const rarity = RARITY_CONFIG[result.card.rarity]
+          const glowColor = currentBorder
+            ? getBorderColor()
+            : parseInt(RARITY_CONFIG[result.card.rarity].color.replace('#', ''), 16)
           const glow = new Graphics()
           glow.roundRect(-CARD_WIDTH / 2 - 5, -CARD_HEIGHT / 2 - 5, CARD_WIDTH + 10, CARD_HEIGHT + 10, 10)
-          glow.stroke({ color: parseInt(rarity.color.replace('#', ''), 16), width: 3, alpha: 0.8 })
+          glow.stroke({ color: glowColor, width: 3, alpha: 0.8 })
           frontCard.addChildAt(glow, 0)
 
           for (let g = 0; g < 2; g++) {
