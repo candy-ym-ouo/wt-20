@@ -57,8 +57,7 @@ export function getAllWeekKeys() {
   Storage.getDrawHistory().forEach(r => addFromTimestamps([r.timestamp]))
   Storage.getDailyFortuneHistory().forEach(r => addFromTimestamps([r.timestamp]))
   Storage.getThemeDivinationHistory().forEach(r => addFromTimestamps([r.timestamp]))
-  const spreadHistory = Storage.getMultiSpreadHistory && Storage.getMultiSpreadHistory()
-  if (spreadHistory) spreadHistory.forEach(r => addFromTimestamps([r.timestamp]))
+  Storage.getMultiSpreadHistory().forEach(r => addFromTimestamps([r.timestamp]))
   Storage.getHiddenEventsLog().forEach(r => addFromTimestamps([r.unlockedAt]))
 
   const collection = Storage.getCollection()
@@ -104,7 +103,7 @@ export function generateWeeklyReport(weekKey) {
   const drawHistory = Storage.getDrawHistory()
   const dailyHistory = Storage.getDailyFortuneHistory()
   const themeHistory = Storage.getThemeDivinationHistory()
-  const spreadHistory = Storage.getMultiSpreadHistory && Storage.getMultiSpreadHistory() || []
+  const spreadHistory = Storage.getMultiSpreadHistory()
   const hiddenEventsLog = Storage.getHiddenEventsLog()
   const collection = Storage.getCollection()
   const allCards = getAllCards()

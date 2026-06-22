@@ -770,6 +770,8 @@
               <li>🏆 成就 {getAchievementCount()}</li>
               <li>🔮 主题占卜 {themeHistory.length}</li>
               <li>🎐 每日签 {dailyHistory.length}</li>
+              <li>📊 周报 {Storage.getWeeklyReports().length}</li>
+              <li>✨ 隐藏事件 {Storage.getHiddenEventsLog().length}</li>
             </ul>
           </div>
           <div class="compare-col">
@@ -780,6 +782,8 @@
               <li>🏆 成就 {verifySummary.achievementCount}</li>
               <li>🔮 主题占卜 {verifySummary.themeDivinationCount}</li>
               <li>🎐 每日签 {verifySummary.dailyFortuneCount}</li>
+              <li>📊 周报 {verifySummary.weeklyReportCount || 0}</li>
+              <li>✨ 隐藏事件 {verifySummary.hiddenEventCount || 0}</li>
             </ul>
           </div>
         </div>

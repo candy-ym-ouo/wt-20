@@ -18,7 +18,8 @@ const STORAGE_KEYS = {
   PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
   SPENT_ACHIEVEMENT_POINTS: 'cyber_divination_spent_points',
   WEEKLY_REPORTS: 'cyber_divination_weekly_reports',
-  HIDDEN_EVENTS_LOG: 'cyber_divination_hidden_events_log'
+  HIDDEN_EVENTS_LOG: 'cyber_divination_hidden_events_log',
+  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -163,7 +164,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 4,
+      version: 5,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -179,7 +180,11 @@ export const Storage = {
       storyProgress: this.getStoryProgress(),
       storyHistory: this.getStoryHistory(),
       tempEffects: this.getTempEffects(),
-      permanentEffects: this.getPermanentEffects()
+      permanentEffects: this.getPermanentEffects(),
+      spentAchievementPoints: this.getSpentAchievementPoints(),
+      multiSpreadHistory: this.getMultiSpreadHistory(),
+      weeklyReports: this.getWeeklyReports(),
+      hiddenEventsLog: this.getHiddenEventsLog()
     }
   },
 
@@ -201,6 +206,12 @@ export const Storage = {
       if (data.storyHistory) safeSet(STORAGE_KEYS.STORY_HISTORY, data.storyHistory)
       if (data.tempEffects) safeSet(STORAGE_KEYS.TEMP_EFFECTS, data.tempEffects)
       if (data.permanentEffects) safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, data.permanentEffects)
+      if (typeof data.spentAchievementPoints === 'number') {
+        safeSet(STORAGE_KEYS.SPENT_ACHIEVEMENT_POINTS, data.spentAchievementPoints)
+      }
+      if (data.multiSpreadHistory) safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, data.multiSpreadHistory)
+      if (data.weeklyReports) safeSet(STORAGE_KEYS.WEEKLY_REPORTS, data.weeklyReports)
+      if (data.hiddenEventsLog) safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, data.hiddenEventsLog)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -300,6 +311,28 @@ export const Storage = {
 
   clearThemeDivinationHistory() {
     safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
+  },
+
+  getMultiSpreadHistory() {
+    return safeGet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
+  },
+
+  addMultiSpreadRecord(record) {
+    const history = this.getMultiSpreadHistory()
+    history.unshift({
+      ...record,
+      id: `spread_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, history)
+    return history
+  },
+
+  clearMultiSpreadHistory() {
+    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
   },
 
   getDecks() {

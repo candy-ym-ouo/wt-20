@@ -1,6 +1,6 @@
 import { Storage } from './storage.js'
 
-const BACKUP_VERSION = 5
+const BACKUP_VERSION = 6
 const MAX_AUTO_BACKUPS = 10
 const CHECKSUM_SEED = 0xDEAD
 
@@ -28,7 +28,11 @@ const BACKUP_FIELDS = [
   'ownedShopItems',
   'shopPurchaseHistory',
   'equippedShopItems',
-  'achievementPointsSpent'
+  'spentAchievementPoints',
+  'mysteriousVisitor',
+  'visitorCardRecords',
+  'weeklyReports',
+  'hiddenEventsLog'
 ]
 
 const SETTINGS_SYNC_RULES = {
@@ -122,7 +126,14 @@ function migrateBackup(data) {
     migrated.ownedShopItems = migrated.ownedShopItems || {}
     migrated.shopPurchaseHistory = migrated.shopPurchaseHistory || []
     migrated.equippedShopItems = migrated.equippedShopItems || { skin: null, card_back: null, animation: null, card_border: null, special_title: null }
-    migrated.achievementPointsSpent = migrated.achievementPointsSpent || 0
+    migrated.spentAchievementPoints = migrated.spentAchievementPoints ?? migrated.achievementPointsSpent ?? 0
+    migrated.mysteriousVisitor = migrated.mysteriousVisitor || { lastVisit: null, visitorId: null, nextVisitAt: null, visitorCount: 0 }
+    migrated.visitorCardRecords = migrated.visitorCardRecords || []
+  }
+
+  if (version < 6) {
+    migrated.weeklyReports = migrated.weeklyReports || []
+    migrated.hiddenEventsLog = migrated.hiddenEventsLog || []
   }
 
   migrated._meta = {
@@ -514,6 +525,10 @@ export const BackupManager = {
       achievementCount: data.achievements ? Object.keys(data.achievements).length : 0,
       dailyFortuneCount: data.dailyFortuneHistory?.length || 0,
       themeDivinationCount: data.themeDivinationHistory?.length || 0,
+      multiSpreadCount: data.multiSpreadHistory?.length || 0,
+      weeklyReportCount: data.weeklyReports?.length || 0,
+      hiddenEventCount: data.hiddenEventsLog?.length || 0,
+      visitorCount: data.visitorCardRecords?.length || 0,
       wishCount: data.wishList?.length || 0,
       seasonDataCount: data.seasonData ? Object.keys(data.seasonData).length : 0,
       hasSettings: !!data.settings
