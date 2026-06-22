@@ -2,7 +2,9 @@
   import { onMount, onDestroy } from 'svelte'
   import { Storage } from './utils/storage.js'
   import { onHiddenEvent } from './utils/cardSystem.js'
-  import { checkAllAchievements } from './utils/achievementSystem.js'
+  import { checkAllAchievements, triggerHiddenAchievement } from './utils/achievementSystem.js'
+  import { onVisitorEvent } from './utils/mysteriousVisitorSystem.js'
+  import { MYSTERIOUS_VISITORS } from './data/mysteriousVisitor.js'
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
@@ -12,11 +14,13 @@
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import ReviewPage from './pages/ReviewPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
+  import MysteriousVisitorModal from './components/MysteriousVisitorModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
 
   let currentPage = 'divination'
   let historyInitialTab = 'divination'
   let hiddenEvent = null
+  let visitorModalOpen = false
   let glitchClass = ''
 
   const PAGES = [
@@ -32,6 +36,7 @@
 
   let removeListener
   let removeNavListener
+  let removeVisitorListener
 
   onMount(() => {
     checkAllAchievements()
@@ -39,6 +44,23 @@
       hiddenEvent = event
       glitchClass = 'screen-glitch'
       setTimeout(() => { glitchClass = '' }, 300)
+    })
+    removeVisitorListener = onVisitorEvent((eventData) => {
+      visitorModalOpen = true
+      glitchClass = 'screen-glitch'
+      setTimeout(() => { glitchClass = '' }, 500)
+
+      const visitorData = Storage.getMysteriousVisitor()
+      const totalEncounters = visitorData.encounters.length
+      if (totalEncounters === 0) {
+        triggerHiddenAchievement('achievement_visitor_first_encounter')
+      }
+
+      const uniqueVisitorIds = new Set(visitorData.encounters.map(e => e.visitorId))
+      uniqueVisitorIds.add(eventData.visitor.id)
+      if (uniqueVisitorIds.size >= MYSTERIOUS_VISITORS.length) {
+        triggerHiddenAchievement('achievement_visitor_all_types')
+      }
     })
     removeNavListener = (e) => {
       const detail = e.detail
@@ -60,6 +82,7 @@
 
   onDestroy(() => {
     if (removeListener) removeListener()
+    if (removeVisitorListener) removeVisitorListener()
     if (removeNavListener) window.removeEventListener('navigate', removeNavListener)
   })
 
@@ -105,6 +128,8 @@
 {#if hiddenEvent}
   <HiddenEventModal event={hiddenEvent} onClose={closeHiddenEvent} />
 {/if}
+
+<MysteriousVisitorModal isOpen={visitorModalOpen} />
 
 <AchievementNotify />
 

@@ -16,6 +16,7 @@ import { CARDS } from '../data/cards.js'
 import { THEME_CONFIG } from '../data/constants.js'
 import { STORY_LINES } from '../data/storyEvents.js'
 import { getCompletedStories, getStoryEndingCounts } from './storySystem.js'
+import { MYSTERIOUS_VISITORS } from '../data/mysteriousVisitor.js'
 
 const unlockedStore = writable({})
 const notifyStore = writable(null)
@@ -223,6 +224,12 @@ function getContext() {
   const completedStories = getCompletedStories()
   const endingCounts = getStoryEndingCounts()
 
+  const visitorData = Storage.getMysteriousVisitor()
+  const visitorCardRecords = Storage.getVisitorCardRecords()
+  const visitorEncounterCount = visitorData.encounters.length
+  const uniqueVisitorIds = new Set(visitorData.encounters.map(e => e.visitorId))
+  const visitorExclusiveCardCount = visitorCardRecords.length
+
   return {
     stats,
     collection,
@@ -238,7 +245,10 @@ function getContext() {
     storyProgress,
     storyHistory,
     completedStories,
-    endingCounts
+    endingCounts,
+    visitorEncounterCount,
+    uniqueVisitorIds,
+    visitorExclusiveCardCount
   }
 }
 
@@ -289,6 +299,15 @@ function checkCondition(achievement, ctx) {
     case 'all_stories':
       return STORY_LINES.every(s => ctx.completedStories.includes(s.id))
 
+    case 'visitor_encounters':
+      return ctx.visitorEncounterCount >= condition.target
+
+    case 'visitor_exclusive_cards':
+      return ctx.visitorExclusiveCardCount >= condition.target
+
+    case 'visitor_all_types':
+      return MYSTERIOUS_VISITORS.every(v => ctx.uniqueVisitorIds.has(v.id))
+
     default:
       return false
   }
@@ -337,6 +356,8 @@ export function checkAchievementsAfterAction(actionType, payload = {}) {
         return ['total_draws', 'legendary_count', 'reversed_draws', 'unique_cards', 'unique_cards_ratio', 'all_themes', 'all_spreads'].includes(a.condition.type)
       case 'story':
         return ['story_ending', 'story_completed', 'stories_count', 'all_stories'].includes(a.condition.type)
+      case 'visitor':
+        return ['visitor_encounters', 'visitor_exclusive_cards', 'visitor_all_types'].includes(a.condition.type)
       default:
         return true
     }
@@ -473,6 +494,29 @@ export function getAchievementProgress(achievement) {
         current: ctx.completedStories.length,
         target: totalStories,
         percent: totalStories > 0 ? Math.round((ctx.completedStories.length / totalStories) * 100) : 0
+      }
+
+    case 'visitor_encounters':
+      return {
+        current: Math.min(ctx.visitorEncounterCount, condition.target),
+        target: condition.target,
+        percent: Math.min(100, Math.round((ctx.visitorEncounterCount / condition.target) * 100))
+      }
+
+    case 'visitor_exclusive_cards':
+      return {
+        current: Math.min(ctx.visitorExclusiveCardCount, condition.target),
+        target: condition.target,
+        percent: Math.min(100, Math.round((ctx.visitorExclusiveCardCount / condition.target) * 100))
+      }
+
+    case 'visitor_all_types':
+      const totalVisitors = MYSTERIOUS_VISITORS.length
+      const encounteredVisitors = MYSTERIOUS_VISITORS.filter(v => ctx.uniqueVisitorIds.has(v.id)).length
+      return {
+        current: encounteredVisitors,
+        target: totalVisitors,
+        percent: totalVisitors > 0 ? Math.round((encounteredVisitors / totalVisitors) * 100) : 0
       }
 
     default:

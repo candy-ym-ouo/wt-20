@@ -817,4 +817,105 @@ const STORY_ACHIEVEMENTS = [
   }
 ]
 
+const VISITOR_ACHIEVEMENTS = [
+  {
+    id: 'achievement_visitor_first_encounter',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🌀',
+    revealedName: '缝隙之眼',
+    revealedDescription: '你第一次在数据缝隙中遭遇了神秘访客。那些游走在代码边缘的存在，终于注意到了你。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.HIDDEN,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '缝隙之眼',
+      description: '解锁隐藏称号：缝隙之眼'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_visitor_first_encounter'
+    }
+  },
+  {
+    id: 'achievement_visitor_exclusive_card',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🃏',
+    revealedName: '异界收藏家',
+    revealedDescription: '你获得了神秘访客赠予的专属卡牌。这张卡牌不存在于正常的卡池中，它是来自另一个维度的馈赠。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.EPIC,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '异界收藏家',
+      description: '解锁隐藏称号：异界收藏家'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_visitor_exclusive_card'
+    }
+  },
+  {
+    id: 'achievement_visitor_all_types',
+    name: '???',
+    description: '???',
+    icon: '❓',
+    revealedIcon: '🌐',
+    revealedName: '维度行者',
+    revealedDescription: '你遭遇了所有类型的神秘访客。数据缝隙中的旅者们已经将你视为同类。',
+    category: ACHIEVEMENT_CATEGORY.HIDDEN,
+    tier: ACHIEVEMENT_TIER.LEGENDARY,
+    isHidden: true,
+    reward: {
+      type: REWARD_TYPE.TITLE,
+      value: '维度行者',
+      description: '解锁隐藏称号：维度行者'
+    },
+    condition: {
+      type: 'hidden_event',
+      target: 'achievement_visitor_all_types'
+    }
+  },
+  {
+    id: 'achievement_visitor_5_encounters',
+    name: '访客之友',
+    description: '与神秘访客遭遇5次。',
+    icon: '🤝',
+    category: ACHIEVEMENT_CATEGORY.SPECIAL,
+    tier: ACHIEVEMENT_TIER.RARE,
+    reward: {
+      type: REWARD_TYPE.POINTS,
+      value: 150,
+      description: '获得150成就点数'
+    },
+    condition: {
+      type: 'visitor_encounters',
+      target: 5
+    }
+  },
+  {
+    id: 'achievement_visitor_3_cards',
+    name: '异界信使',
+    description: '收集3张神秘访客的专属卡牌。',
+    icon: '🎴',
+    category: ACHIEVEMENT_CATEGORY.COLLECTION,
+    tier: ACHIEVEMENT_TIER.EPIC,
+    reward: {
+      type: REWARD_TYPE.POINTS,
+      value: 300,
+      description: '获得300成就点数'
+    },
+    condition: {
+      type: 'visitor_exclusive_cards',
+      target: 3
+    }
+  }
+]
+
 ACHIEVEMENTS.push(...STORY_ACHIEVEMENTS)
+ACHIEVEMENTS.push(...VISITOR_ACHIEVEMENTS)

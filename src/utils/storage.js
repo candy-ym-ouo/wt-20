@@ -9,7 +9,14 @@ const STORAGE_KEYS = {
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
   DECKS: 'cyber_divination_decks',
   THEME_ALBUMS: 'cyber_divination_theme_albums',
-  SHARE_HISTORY: 'cyber_divination_share_history'
+  SHARE_HISTORY: 'cyber_divination_share_history',
+  MYSTERIOUS_VISITOR: 'cyber_divination_mysterious_visitor',
+  VISITOR_CARD_RECORDS: 'cyber_divination_visitor_card_records',
+  STORY_PROGRESS: 'cyber_divination_story_progress',
+  STORY_HISTORY: 'cyber_divination_story_history',
+  TEMP_EFFECTS: 'cyber_divination_temp_effects',
+  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
+  SPENT_ACHIEVEMENT_POINTS: 'cyber_divination_spent_points'
 }
 
 function safeGet(key, defaultValue) {
@@ -154,7 +161,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 3,
+      version: 4,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -164,7 +171,13 @@ export const Storage = {
       stats: this.getStats(),
       settings: this.getSettings(),
       decks: this.getDecks(),
-      themeAlbums: this.getThemeAlbums()
+      themeAlbums: this.getThemeAlbums(),
+      mysteriousVisitor: this.getMysteriousVisitor(),
+      visitorCardRecords: this.getVisitorCardRecords(),
+      storyProgress: this.getStoryProgress(),
+      storyHistory: this.getStoryHistory(),
+      tempEffects: this.getTempEffects(),
+      permanentEffects: this.getPermanentEffects()
     }
   },
 
@@ -180,6 +193,12 @@ export const Storage = {
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
       if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
       if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
+      if (data.mysteriousVisitor) safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data.mysteriousVisitor)
+      if (data.visitorCardRecords) safeSet(STORAGE_KEYS.VISITOR_CARD_RECORDS, data.visitorCardRecords)
+      if (data.storyProgress) safeSet(STORAGE_KEYS.STORY_PROGRESS, data.storyProgress)
+      if (data.storyHistory) safeSet(STORAGE_KEYS.STORY_HISTORY, data.storyHistory)
+      if (data.tempEffects) safeSet(STORAGE_KEYS.TEMP_EFFECTS, data.tempEffects)
+      if (data.permanentEffects) safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, data.permanentEffects)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -367,5 +386,227 @@ export const Storage = {
 
   clearShareHistory() {
     safeSet(STORAGE_KEYS.SHARE_HISTORY, [])
+  },
+
+  getMysteriousVisitor() {
+    return safeGet(STORAGE_KEYS.MYSTERIOUS_VISITOR, {
+      encounters: [],
+      activeEncounter: null,
+      lastEncounterTime: null
+    })
+  },
+
+  saveMysteriousVisitor(data) {
+    safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+  },
+
+  addVisitorEncounter(encounter) {
+    const data = this.getMysteriousVisitor()
+    data.encounters.push({
+      ...encounter,
+      id: `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (data.encounters.length > 50) {
+      data.encounters.splice(0, data.encounters.length - 50)
+    }
+    data.lastEncounterTime = Date.now()
+    safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+    return data
+  },
+
+  setActiveVisitorEncounter(encounter) {
+    const data = this.getMysteriousVisitor()
+    data.activeEncounter = encounter
+    safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+    return data
+  },
+
+  clearActiveVisitorEncounter() {
+    const data = this.getMysteriousVisitor()
+    data.activeEncounter = null
+    safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+    return data
+  },
+
+  updateVisitorEncounterChoices(visitorId, dialogId, choiceId) {
+    const data = this.getMysteriousVisitor()
+    if (data.activeEncounter && data.activeEncounter.visitorId === visitorId) {
+      if (!data.activeEncounter.choices) {
+        data.activeEncounter.choices = {}
+      }
+      data.activeEncounter.choices[dialogId] = {
+        choiceId,
+        chosenAt: Date.now()
+      }
+      safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+    }
+    return data
+  },
+
+  completeVisitorEncounter(visitorId, reward) {
+    const data = this.getMysteriousVisitor()
+    if (data.activeEncounter && data.activeEncounter.visitorId === visitorId) {
+      data.activeEncounter.completedAt = Date.now()
+      data.activeEncounter.reward = reward
+      data.encounters.push({ ...data.activeEncounter })
+      data.activeEncounter = null
+      safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data)
+    }
+    return data
+  },
+
+  getVisitorCardRecords() {
+    return safeGet(STORAGE_KEYS.VISITOR_CARD_RECORDS, [])
+  },
+
+  addVisitorCardRecord(record) {
+    const records = this.getVisitorCardRecords()
+    records.unshift({
+      ...record,
+      id: `vcr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      recordedAt: Date.now()
+    })
+    if (records.length > 100) {
+      records.splice(100)
+    }
+    safeSet(STORAGE_KEYS.VISITOR_CARD_RECORDS, records)
+    return records
+  },
+
+  hasVisitorCardRecord(visitorId, cardId) {
+    const records = this.getVisitorCardRecords()
+    return records.some(r => r.visitorId === visitorId && r.cardId === cardId)
+  },
+
+  getVisitorEncounterCount(visitorId) {
+    const data = this.getMysteriousVisitor()
+    return data.encounters.filter(e => e.visitorId === visitorId).length
+  },
+
+  getTotalVisitorEncounters() {
+    const data = this.getMysteriousVisitor()
+    return data.encounters.length
+  },
+
+  canTriggerVisitor(visitorId, cooldownMs) {
+    const data = this.getMysteriousVisitor()
+    if (!data.lastEncounterTime) return true
+    const lastSameVisitor = data.encounters
+      .filter(e => e.visitorId === visitorId)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0]
+    if (!lastSameVisitor) return true
+    return Date.now() - (lastSameVisitor.timestamp || 0) >= cooldownMs
+  },
+
+  getStoryProgress() {
+    return safeGet(STORAGE_KEYS.STORY_PROGRESS, {})
+  },
+
+  getStoryProgressById(storyId) {
+    const progress = this.getStoryProgress()
+    return progress[storyId] || null
+  },
+
+  updateStoryProgress(storyId, updates) {
+    const progress = this.getStoryProgress()
+    if (!progress[storyId]) {
+      progress[storyId] = { status: 'not_started', currentChapter: null, choices: {} }
+    }
+    Object.assign(progress[storyId], updates)
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, progress)
+    return progress[storyId]
+  },
+
+  addStoryChoice(storyId, chapterId, choiceId) {
+    const progress = this.getStoryProgress()
+    if (!progress[storyId]) return null
+    if (!progress[storyId].choices) progress[storyId].choices = {}
+    progress[storyId].choices[chapterId] = { choiceId, chosenAt: Date.now() }
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, progress)
+    return progress[storyId]
+  },
+
+  completeStory(storyId, endingType) {
+    const progress = this.getStoryProgress()
+    if (!progress[storyId]) return null
+    progress[storyId].status = 'completed'
+    progress[storyId].completedAt = Date.now()
+    progress[storyId].endingType = endingType
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, progress)
+    return progress[storyId]
+  },
+
+  getStoryHistory() {
+    return safeGet(STORAGE_KEYS.STORY_HISTORY, [])
+  },
+
+  addStoryHistory(record) {
+    const history = this.getStoryHistory()
+    history.unshift({
+      ...record,
+      id: `sh_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.STORY_HISTORY, history)
+    return history
+  },
+
+  getTempEffects() {
+    return safeGet(STORAGE_KEYS.TEMP_EFFECTS, [])
+  },
+
+  addTempEffect(effect) {
+    const effects = this.getTempEffects()
+    effects.push({
+      ...effect,
+      addedAt: Date.now(),
+      remainingDuration: effect.duration || 1
+    })
+    safeSet(STORAGE_KEYS.TEMP_EFFECTS, effects)
+    return effects
+  },
+
+  decrementTempEffects() {
+    const effects = this.getTempEffects()
+    const updated = effects
+      .map(e => ({ ...e, remainingDuration: e.remainingDuration - 1 }))
+      .filter(e => e.remainingDuration > 0)
+    safeSet(STORAGE_KEYS.TEMP_EFFECTS, updated)
+    return updated
+  },
+
+  getAllActiveEffects() {
+    const temp = this.getTempEffects()
+    const permanent = this.getPermanentEffects()
+    return [...temp, ...permanent]
+  },
+
+  getPermanentEffects() {
+    return safeGet(STORAGE_KEYS.PERMANENT_EFFECTS, [])
+  },
+
+  addPermanentEffect(effect) {
+    const effects = this.getPermanentEffects()
+    effects.push({
+      ...effect,
+      addedAt: Date.now(),
+      isPermanent: true
+    })
+    safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
+    return effects
+  },
+
+  getSpentAchievementPoints() {
+    return safeGet(STORAGE_KEYS.SPENT_ACHIEVEMENT_POINTS, 0)
+  },
+
+  spendAchievementPoints(amount) {
+    const current = this.getSpentAchievementPoints()
+    safeSet(STORAGE_KEYS.SPENT_ACHIEVEMENT_POINTS, current + amount)
+    return current + amount
   }
 }

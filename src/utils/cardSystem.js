@@ -3,6 +3,7 @@ import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_S
 import { Storage } from './storage.js'
 import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
 import { checkSeasonTasksAfterAction } from './seasonSystem.js'
+import { checkVisitorTriggers, triggerVisitor } from './mysteriousVisitorSystem.js'
 
 export function getAllCards() {
   return CARDS
@@ -98,7 +99,20 @@ export function saveDrawResult(drawResult, spreadType = 'single') {
   checkAchievementsAfterAction('draw')
   checkSeasonTasksAfterAction('draw')
 
+  const drawnCards = spreadType === 'single' ? [drawResult] : drawResult
+  checkVisitorTriggerAfterDraw(drawnCards)
+
   return records
+}
+
+function checkVisitorTriggerAfterDraw(drawnCards) {
+  const triggeredVisitors = checkVisitorTriggers(drawnCards)
+  if (triggeredVisitors.length > 0) {
+    const selected = triggeredVisitors[Math.floor(Math.random() * triggeredVisitors.length)]
+    setTimeout(() => {
+      triggerVisitor(selected.visitor)
+    }, 1500)
+  }
 }
 
 function checkHiddenEvents(drawResult, spreadType) {
@@ -322,6 +336,8 @@ export function saveThemeDivinationResult(theme, spreadTypeId, results, question
   checkAchievementsAfterAction('theme')
   checkSeasonTasksAfterAction('draw')
 
+  checkVisitorTriggerAfterDraw(results)
+
   return Storage.addThemeDivinationRecord(record)
 }
 
@@ -388,6 +404,8 @@ export function saveMultiSpreadResult(spreadId, results, question = '') {
   checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
   checkAchievementsAfterAction('spread')
   checkSeasonTasksAfterAction('draw')
+
+  checkVisitorTriggerAfterDraw(results)
 
   return Storage.addMultiSpreadRecord(record)
 }
