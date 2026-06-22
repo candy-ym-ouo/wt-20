@@ -10,7 +10,12 @@ const STORAGE_KEYS = {
   MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
   DECKS: 'cyber_divination_decks',
   THEME_ALBUMS: 'cyber_divination_theme_albums',
-  SHARE_HISTORY: 'cyber_divination_share_history'
+  SHARE_HISTORY: 'cyber_divination_share_history',
+  ONBOARDING: 'cyber_divination_onboarding',
+  STORY_PROGRESS: 'cyber_divination_story_progress',
+  STORY_HISTORY: 'cyber_divination_story_history',
+  TEMP_EFFECTS: 'cyber_divination_temp_effects',
+  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects'
 }
 
 function safeGet(key, defaultValue) {
@@ -392,5 +397,152 @@ export const Storage = {
 
   clearShareHistory() {
     safeSet(STORAGE_KEYS.SHARE_HISTORY, [])
+  },
+
+  getOnboarding() {
+    return safeGet(STORAGE_KEYS.ONBOARDING, {
+      completed: false,
+      currentStep: 0,
+      firstDrawDone: false,
+      worldLoreViewed: false,
+      hiddenEventUnlocked: false,
+      startedAt: null,
+      completedAt: null
+    })
+  },
+
+  updateOnboarding(updates) {
+    const onboarding = this.getOnboarding()
+    const updated = { ...onboarding, ...updates }
+    safeSet(STORAGE_KEYS.ONBOARDING, updated)
+    return updated
+  },
+
+  completeOnboarding() {
+    return this.updateOnboarding({
+      completed: true,
+      completedAt: Date.now()
+    })
+  },
+
+  resetOnboarding() {
+    safeSet(STORAGE_KEYS.ONBOARDING, {
+      completed: false,
+      currentStep: 0,
+      firstDrawDone: false,
+      worldLoreViewed: false,
+      hiddenEventUnlocked: false,
+      startedAt: null,
+      completedAt: null
+    })
+  },
+
+  getStoryProgress() {
+    return safeGet(STORAGE_KEYS.STORY_PROGRESS, {})
+  },
+
+  getStoryProgressById(storyId) {
+    const progress = this.getStoryProgress()
+    return progress[storyId] || null
+  },
+
+  updateStoryProgress(storyId, updates) {
+    const allProgress = this.getStoryProgress()
+    allProgress[storyId] = {
+      ...allProgress[storyId],
+      ...updates,
+      storyId,
+      lastUpdated: Date.now()
+    }
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, allProgress)
+    return allProgress[storyId]
+  },
+
+  completeStory(storyId, endingType) {
+    return this.updateStoryProgress(storyId, {
+      status: 'completed',
+      endingType,
+      completedAt: Date.now()
+    })
+  },
+
+  getStoryHistory() {
+    return safeGet(STORAGE_KEYS.STORY_HISTORY, [])
+  },
+
+  addStoryHistory(record) {
+    const history = this.getStoryHistory()
+    history.unshift({
+      ...record,
+      id: `story_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.STORY_HISTORY, history)
+    return history
+  },
+
+  addStoryChoice(storyId, chapterId, choiceId) {
+    const progress = this.getStoryProgressById(storyId)
+    if (!progress) return null
+
+    if (!progress.choices) {
+      progress.choices = []
+    }
+    progress.choices.push({
+      chapterId,
+      choiceId,
+      timestamp: Date.now()
+    })
+
+    const allProgress = this.getStoryProgress()
+    allProgress[storyId] = progress
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, allProgress)
+    return progress
+  },
+
+  getTempEffects() {
+    return safeGet(STORAGE_KEYS.TEMP_EFFECTS, [])
+  },
+
+  addTempEffect(effect) {
+    const effects = this.getTempEffects()
+    effects.push({
+      ...effect,
+      id: `effect_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: Date.now()
+    })
+    safeSet(STORAGE_KEYS.TEMP_EFFECTS, effects)
+    return effects
+  },
+
+  decrementTempEffects() {
+    const effects = this.getTempEffects()
+    const updated = effects
+      .map(e => ({ ...e, duration: e.duration - 1 }))
+      .filter(e => e.duration > 0)
+    safeSet(STORAGE_KEYS.TEMP_EFFECTS, updated)
+    return updated
+  },
+
+  getPermanentEffects() {
+    return safeGet(STORAGE_KEYS.PERMANENT_EFFECTS, [])
+  },
+
+  addPermanentEffect(effect) {
+    const effects = this.getPermanentEffects()
+    effects.push({
+      ...effect,
+      id: `perm_effect_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: Date.now()
+    })
+    safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
+    return effects
+  },
+
+  getAllActiveEffects() {
+    return [...this.getTempEffects(), ...this.getPermanentEffects()]
   }
 }

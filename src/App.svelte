@@ -3,6 +3,7 @@
   import { Storage } from './utils/storage.js'
   import { onHiddenEvent } from './utils/cardSystem.js'
   import { checkAllAchievements } from './utils/achievementSystem.js'
+  import { openWorldLore, openOnboarding } from './utils/onboardingSystem.js'
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
@@ -13,6 +14,9 @@
   import ReviewPage from './pages/ReviewPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
+  import OnboardingModal from './components/OnboardingModal.svelte'
+  import WorldLoreModal from './components/WorldLoreModal.svelte'
+  import StoryModal from './components/StoryModal.svelte'
 
   let currentPage = 'divination'
   let historyInitialTab = 'divination'
@@ -66,6 +70,14 @@
   function closeHiddenEvent() {
     hiddenEvent = null
   }
+
+  function handleOpenWorldLore() {
+    openWorldLore()
+  }
+
+  function handleOpenOnboarding() {
+    openOnboarding()
+  }
 </script>
 
 <div id="app-container" class="{glitchClass}">
@@ -89,6 +101,15 @@
     {/if}
   </div>
 
+  <div class="quick-actions">
+    <button class="quick-action-btn lore-btn" on:click={handleOpenWorldLore} title="世界观">
+      📖
+    </button>
+    <button class="quick-action-btn help-btn" on:click={handleOpenOnboarding} title="帮助">
+      ❓
+    </button>
+  </div>
+
   <nav class="navbar">
     {#each PAGES as page}
       <div
@@ -107,6 +128,9 @@
 {/if}
 
 <AchievementNotify />
+<OnboardingModal />
+<WorldLoreModal />
+<StoryModal />
 
 <style>
   #app-container {
@@ -116,5 +140,46 @@
     height: 100%;
     position: relative;
     z-index: 1;
+  }
+
+  .quick-actions {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .quick-action-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-glow);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .quick-action-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+    border-color: var(--accent-cyan);
+  }
+
+  .lore-btn:hover {
+    box-shadow: 0 0 15px rgba(224, 64, 251, 0.4);
+    border-color: var(--accent-magenta);
+  }
+
+  .help-btn:hover {
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+    border-color: var(--accent-yellow);
   }
 </style>
