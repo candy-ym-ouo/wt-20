@@ -11,15 +11,18 @@
     PATH_CONFIG,
     MAP_NODE_TYPE,
     NODE_STATUS,
-    getNodeById
+    getNodeById,
+    buildPrerequisiteMap
   } from '../data/mapData.js'
-  import { checkAllAchievements, onAchievementUnlocked } from '../utils/achievementSystem.js'
+  import { checkAllAchievements, onAchievementUnlocked, triggerHiddenAchievement } from '../utils/achievementSystem.js'
 
   let selectedNode = null
-  let mapData = { completedNodes: [], claimedRewards: [] }
+  let mapData = { completedNodes: [], claimedRewards: [], bonusPoints: 0 }
   let activeFilter = 'all'
   let containerRef = null
   let scrollX = 0
+  let showRewardToast = false
+  let rewardToastInfo = null
 
   const PATH_FILTERS = [
     { id: 'all', label: '全部路径', icon: '🗺️', color: '#ffffff' },
@@ -30,6 +33,8 @@
       color: p.color
     }))
   ]
+
+  const prerequisiteMap = buildPrerequisiteMap()
 
   function getGameContext() {
     const stats = Storage.getStats()
@@ -195,37 +200,63 @@
     activeFilter === 'all' || n.path === activeFilter
   )
 
+  function hasAnyPrerequisiteComplete(nodeId) {
+    const prereqs = prerequisiteMap[nodeId] || []
+    if (prereqs.length === 0) return true
+    return prereqs.some(p => mapData.completedNodes.includes(p))
+  }
+
+  function haveAllPrerequisitesComplete(nodeId) {
+    const prereqs = prerequisiteMap[nodeId] || []
+    if (prereqs.length === 0) return true
+    return prereqs.every(p => mapData.completedNodes.includes(p))
+  }
+
   function getNodeStatus(node, ctx) {
     if (mapData.completedNodes.includes(node.id)) {
       return NODE_STATUS.COMPLETED
     }
 
-    if (node.order === 0) {
+    const allPrereqsComplete = haveAllPrerequisitesComplete(node.id)
+    const anyPrereqComplete = hasAnyPrerequisiteComplete(node.id)
+    const allRequirementsMet = node.requirements.length === 0 ||
+      node.requirements.every(req => checkRequirement(req, ctx))
+
+    if (allPrereqsComplete && allRequirementsMet) {
       return NODE_STATUS.AVAILABLE
     }
 
-    const allRequirementsMet = node.requirements.every(req => checkRequirement(req, ctx))
-    if (allRequirementsMet) {
-      return NODE_STATUS.AVAILABLE
+    if (anyPrereqComplete || node.requirements.length > 0) {
+      if (allPrereqsComplete || anyPrereqComplete) {
+        return NODE_STATUS.IN_PROGRESS
+      }
     }
 
-    const hasPrerequisiteComplete = node.order <= 1 || MAP_NODES
-      .filter(n => n.connectsTo && n.connectsTo.includes(node.id))
-      .some(n => mapData.completedNodes.includes(n.id))
+    if (!anyPrereqComplete && prerequisiteMap[node.id] && prerequisiteMap[node.id].length > 0) {
+      return NODE_STATUS.LOCKED
+    }
 
-    if (hasPrerequisiteComplete) {
-      return NODE_STATUS.IN_PROGRESS
+    if (prerequisiteMap[node.id] && prerequisiteMap[node.id].length === 0) {
+      return allRequirementsMet ? NODE_STATUS.AVAILABLE : NODE_STATUS.IN_PROGRESS
     }
 
     return NODE_STATUS.LOCKED
   }
 
+  function isNodeVisible(node) {
+    if (node.alwaysVisible) return true
+    const status = getNodeStatus(node, getGameContext())
+    return status !== NODE_STATUS.LOCKED
+  }
+
   function selectNode(node) {
     const ctx = getGameContext()
     const status = getNodeStatus(node, ctx)
+    const isClaimed = mapData.claimedRewards.includes(node.id)
     selectedNode = {
       node,
       status,
+      isClaimed,
       requirements: node.requirements.map(req => ({
         ...req,
         progress: getRequirementProgress(req, ctx)
@@ -238,25 +269,93 @@
     selectedNode = null
   }
 
+  function grantReward(reward) {
+    if (!reward) return { success: false, message: '' }
+
+    switch (reward.type) {
+      case 'points':
+        Storage.addMapBonusPoints(reward.value)
+        return { success: true, message: `+${reward.value} 成就点数`, icon: '⭐' }
+
+      case 'achievement':
+        try {
+          const unlocked = triggerHiddenAchievement(reward.value)
+          return {
+            success: true,
+            message: unlocked ? '成就已解锁！' : '成就已拥有',
+            icon: '🏆'
+          }
+        } catch (e) {
+          return { success: false, message: '成就解锁失败', icon: '❌' }
+        }
+
+      case 'title':
+        return { success: true, message: `称号：${reward.value}`, icon: '🎖️' }
+
+      default:
+        return { success: true, message: reward.description || '奖励已发放', icon: '🎁' }
+    }
+  }
+
   function completeNode() {
     if (!selectedNode) return
     const { node, status } = selectedNode
     if (status !== NODE_STATUS.AVAILABLE) return
     if (mapData.completedNodes.includes(node.id)) return
 
-    mapData = Storage.completeMapNode(node.id)
+    Storage.completeMapNode(node.id)
 
-    if (node.reward && node.reward.type === 'points') {
-      refresh()
+    if (node.reward && !mapData.claimedRewards.includes(node.id)) {
+      const result = grantReward(node.reward)
+      Storage.claimMapReward(node.id)
+      
+      if (result.success) {
+        rewardToastInfo = {
+          title: node.name,
+          message: result.message,
+          icon: result.icon
+        }
+        showRewardToast = true
+        setTimeout(() => {
+          showRewardToast = false
+          rewardToastInfo = null
+        }, 3000)
+      }
     }
 
-    selectNode(node)
+    refresh()
     checkAllAchievements()
+  }
+
+  function claimReward() {
+    if (!selectedNode) return
+    const { node, status, isClaimed } = selectedNode
+    
+    if (status !== NODE_STATUS.COMPLETED) return
+    if (isClaimed) return
+    if (!node.reward) return
+
+    const result = grantReward(node.reward)
+    Storage.claimMapReward(node.id)
+    
+    if (result.success) {
+      rewardToastInfo = {
+        title: node.name,
+        message: result.message,
+        icon: result.icon
+      }
+      showRewardToast = true
+      setTimeout(() => {
+        showRewardToast = false
+        rewardToastInfo = null
+      }, 3000)
+    }
+
+    refresh()
   }
 
   function refresh() {
     mapData = Storage.getCollectionMap()
-    const ctx = getGameContext()
     if (selectedNode) {
       selectNode(selectedNode.node)
     }
@@ -291,10 +390,14 @@
         node.connectsTo.forEach(targetId => {
           const target = getNodeById(targetId)
           if (target) {
+            const fromCompleted = mapData.completedNodes.includes(node.id)
+            const toCompleted = mapData.completedNodes.includes(targetId)
             connections.push({
               from: node,
               to: target,
-              pathId: node.path
+              pathId: node.path,
+              active: fromCompleted && toCompleted,
+              fromComplete: fromCompleted
             })
           }
         })
@@ -309,6 +412,7 @@
   $: completedCount = mapData.completedNodes.length
   $: totalCount = MAP_NODES.length
   $: progressPercent = Math.round((completedCount / totalCount) * 100)
+  $: bonusPoints = mapData.bonusPoints || 0
 
   let achievementUnsubscribe = null
 
@@ -343,6 +447,11 @@
     <div class="overview-title">
       <span class="overview-icon">🗺️</span>
       <span>探索进度</span>
+      {#if bonusPoints > 0}
+        <span class="bonus-points-badge">
+          ⭐ 地图奖励：+{bonusPoints} 点
+        </span>
+      {/if}
     </div>
     <div class="progress-bar-large">
       <div class="progress-fill-large" style="width: {progressPercent}%"></div>
@@ -569,8 +678,10 @@
                 <div class="reward-value">+{selectedNode.reward.value} 成就点数</div>
               {/if}
             </div>
-            {#if mapData.claimedRewards.includes(selectedNode.node.id)}
+            {#if selectedNode.isClaimed}
               <span class="reward-claimed">✓ 已领取</span>
+            {:else if selectedNode.status === NODE_STATUS.COMPLETED}
+              <span class="reward-new">可领取!</span>
             {/if}
           </div>
         </div>
@@ -579,7 +690,15 @@
       <div class="detail-actions">
         {#if selectedNode.status === NODE_STATUS.AVAILABLE && !mapData.completedNodes.includes(selectedNode.node.id)}
           <button class="btn btn-primary" on:click={completeNode}>
-            ✓ 领取奖励
+            ✓ 完成并领取奖励
+          </button>
+        {:else if selectedNode.status === NODE_STATUS.COMPLETED && !selectedNode.isClaimed && selectedNode.node.reward}
+          <button class="btn btn-primary" on:click={claimReward}>
+            🎁 领取奖励
+          </button>
+        {:else if selectedNode.status === NODE_STATUS.COMPLETED}
+          <button class="btn" disabled>
+            ✓ 已完成
           </button>
         {:else if selectedNode.status === NODE_STATUS.IN_PROGRESS}
           <button class="btn" disabled>
@@ -589,16 +708,23 @@
           <button class="btn" disabled>
             🔒 未解锁
           </button>
-        {:else}
-          <button class="btn" disabled>
-            ✓ 已完成
-          </button>
         {/if}
         <button class="btn btn-ghost" on:click={closeDetail}>
           关闭
         </button>
       </div>
     </div>
+  </div>
+{/if}
+
+{#if showRewardToast && rewardToastInfo}
+  <div class="reward-toast show">
+    <div class="toast-icon">{rewardToastInfo.icon}</div>
+    <div class="toast-content">
+      <div class="toast-title">{rewardToastInfo.title}</div>
+      <div class="toast-message">{rewardToastInfo.message}</div>
+    </div>
+    <div class="toast-sparkle">✨</div>
   </div>
 {/if}
 
@@ -1305,5 +1431,94 @@
   .btn:disabled:hover {
     background: transparent;
     box-shadow: none;
+  }
+
+  .bonus-points-badge {
+    font-size: 11px;
+    background: linear-gradient(135deg, rgba(255, 213, 79, 0.2), rgba(224, 64, 251, 0.2));
+    border: 1px solid rgba(255, 213, 79, 0.4);
+    color: var(--accent-yellow);
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-family: var(--font-mono);
+  }
+
+  .reward-new {
+    font-size: 11px;
+    color: var(--accent-yellow);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+    animation: reward-blink 1.2s ease-in-out infinite;
+  }
+
+  @keyframes reward-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .reward-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: linear-gradient(135deg, rgba(20, 30, 50, 0.95), rgba(40, 20, 60, 0.95));
+    border: 1px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 10px 40px rgba(0, 229, 255, 0.3);
+    pointer-events: none;
+  }
+
+  .reward-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast-icon {
+    font-size: 36px;
+    flex-shrink: 0;
+    animation: toast-icon-bounce 0.6s ease-out;
+  }
+
+  @keyframes toast-icon-bounce {
+    0% { transform: scale(0) rotate(-15deg); }
+    60% { transform: scale(1.3) rotate(5deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .toast-content {
+    flex: 1;
+  }
+
+  .toast-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    margin-bottom: 2px;
+  }
+
+  .toast-message {
+    font-size: 13px;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+  }
+
+  .toast-sparkle {
+    font-size: 20px;
+    animation: toast-sparkle-spin 2s linear infinite;
+  }
+
+  @keyframes toast-sparkle-spin {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.2); }
+    100% { transform: rotate(360deg) scale(1); }
   }
 </style>

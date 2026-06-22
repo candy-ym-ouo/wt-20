@@ -447,6 +447,7 @@ export const Storage = {
     return safeGet(STORAGE_KEYS.COLLECTION_MAP, {
       completedNodes: [],
       claimedRewards: [],
+      bonusPoints: 0,
       lastViewedNode: null,
       explorationStartTime: Date.now()
     })
@@ -476,6 +477,18 @@ export const Storage = {
     return mapData
   },
 
+  addMapBonusPoints(points) {
+    const mapData = this.getCollectionMap()
+    mapData.bonusPoints = (mapData.bonusPoints || 0) + points
+    safeSet(STORAGE_KEYS.COLLECTION_MAP, mapData)
+    return mapData
+  },
+
+  getMapBonusPoints() {
+    const mapData = this.getCollectionMap()
+    return mapData.bonusPoints || 0
+  },
+
   hasCompletedMapNode(nodeId) {
     const mapData = this.getCollectionMap()
     return mapData.completedNodes.includes(nodeId)
@@ -490,6 +503,7 @@ export const Storage = {
     safeSet(STORAGE_KEYS.COLLECTION_MAP, {
       completedNodes: [],
       claimedRewards: [],
+      bonusPoints: 0,
       lastViewedNode: null,
       explorationStartTime: Date.now()
     })

@@ -76,7 +76,8 @@ export const MAP_NODES = [
     icon: '🚪',
     requirements: [],
     reward: { type: 'title', value: '初入赛博', description: '解锁起始称号' },
-    alwaysVisible: true
+    alwaysVisible: true,
+    connectsTo: ['node_draw_1']
   },
   {
     id: 'node_draw_1',
@@ -390,4 +391,26 @@ export function getNodesByPath(pathId) {
 
 export function getStartingNode() {
   return MAP_NODES.find(n => n.order === 0)
+}
+
+export function buildPrerequisiteMap() {
+  const prereqMap = {}
+  MAP_NODES.forEach(node => {
+    prereqMap[node.id] = []
+  })
+  MAP_NODES.forEach(node => {
+    if (node.connectsTo && node.connectsTo.length > 0) {
+      node.connectsTo.forEach(targetId => {
+        if (prereqMap[targetId]) {
+          prereqMap[targetId].push(node.id)
+        }
+      })
+    }
+  })
+  return prereqMap
+}
+
+export function getStartingNodes() {
+  const prereqMap = buildPrerequisiteMap()
+  return MAP_NODES.filter(n => prereqMap[n.id].length === 0)
 }
