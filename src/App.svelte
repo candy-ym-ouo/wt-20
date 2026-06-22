@@ -13,6 +13,7 @@
   import DivinationPage from './pages/DivinationPage.svelte'
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import ReviewPage from './pages/ReviewPage.svelte'
+  import WeeklyReportPage from './pages/WeeklyReportPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import MysteriousVisitorModal from './components/MysteriousVisitorModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
@@ -27,9 +28,10 @@
     { id: 'divination', icon: '🔮', label: '占卜' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
+    { id: 'weekly', icon: '📊', label: '周报' },
     { id: 'collection', icon: '📚', label: '收藏' },
     { id: 'achievements', icon: '🏆', label: '成就' },
-    { id: 'review', icon: '📊', label: '回顾' },
+    { id: 'review', icon: '�', label: '回顾' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
   ]
@@ -99,6 +101,8 @@
       <DailyFortunePage />
     {:else if currentPage === 'draw'}
       <DrawPage />
+    {:else if currentPage === 'weekly'}
+      <WeeklyReportPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
     {:else if currentPage === 'achievements'}

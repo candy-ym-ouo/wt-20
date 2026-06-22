@@ -191,6 +191,8 @@ function triggerHiddenEvent(card) {
     unlockedAt: Date.now()
   }
 
+  Storage.addHiddenEventLog(eventData)
+
   eventListeners.forEach(cb => {
     try {
       cb(eventData)

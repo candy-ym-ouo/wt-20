@@ -16,7 +16,9 @@ const STORAGE_KEYS = {
   STORY_HISTORY: 'cyber_divination_story_history',
   TEMP_EFFECTS: 'cyber_divination_temp_effects',
   PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
-  SPENT_ACHIEVEMENT_POINTS: 'cyber_divination_spent_points'
+  SPENT_ACHIEVEMENT_POINTS: 'cyber_divination_spent_points',
+  WEEKLY_REPORTS: 'cyber_divination_weekly_reports',
+  HIDDEN_EVENTS_LOG: 'cyber_divination_hidden_events_log'
 }
 
 function safeGet(key, defaultValue) {
@@ -608,5 +610,60 @@ export const Storage = {
     const current = this.getSpentAchievementPoints()
     safeSet(STORAGE_KEYS.SPENT_ACHIEVEMENT_POINTS, current + amount)
     return current + amount
+  },
+
+  getWeeklyReports() {
+    return safeGet(STORAGE_KEYS.WEEKLY_REPORTS, [])
+  },
+
+  saveWeeklyReport(report) {
+    const reports = this.getWeeklyReports()
+    const existingIndex = reports.findIndex(r => r.weekKey === report.weekKey)
+    if (existingIndex >= 0) {
+      reports[existingIndex] = { ...report, updatedAt: Date.now() }
+    } else {
+      reports.unshift({
+        ...report,
+        id: `weekly_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+    }
+    if (reports.length > 20) {
+      reports.splice(20)
+    }
+    safeSet(STORAGE_KEYS.WEEKLY_REPORTS, reports)
+    return reports
+  },
+
+  getWeeklyReportByKey(weekKey) {
+    const reports = this.getWeeklyReports()
+    return reports.find(r => r.weekKey === weekKey) || null
+  },
+
+  clearWeeklyReports() {
+    safeSet(STORAGE_KEYS.WEEKLY_REPORTS, [])
+  },
+
+  getHiddenEventsLog() {
+    return safeGet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, [])
+  },
+
+  addHiddenEventLog(event) {
+    const log = this.getHiddenEventsLog()
+    log.unshift({
+      ...event,
+      id: `hel_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      loggedAt: Date.now()
+    })
+    if (log.length > 200) {
+      log.splice(200)
+    }
+    safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, log)
+    return log
+  },
+
+  clearHiddenEventsLog() {
+    safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, [])
   }
 }
