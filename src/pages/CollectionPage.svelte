@@ -9,6 +9,7 @@
   import { getThemePack } from '../data/themePacks.js'
 
   let collection = {}
+  let allPacksCollection = {}
   let selectedCard = null
   let activeTab = 'all'
   let activePackFilter = 'all'
@@ -24,6 +25,31 @@
 
   function refreshPacks() {
     packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
+  }
+
+  function refresh() {
+    if (activePackFilter === 'all') {
+      allPacksCollection = Storage.getCollection()
+      collection = {}
+      for (const packId of Object.keys(allPacksCollection)) {
+        const packCollection = allPacksCollection[packId]
+        for (const cardId of Object.keys(packCollection)) {
+          if (!collection[cardId]) {
+            collection[cardId] = { ...packCollection[cardId], packId }
+          } else {
+            collection[cardId].drawCount += packCollection[cardId].drawCount
+          }
+        }
+      }
+    } else {
+      collection = Storage.getCollection(activePackFilter)
+    }
+    refreshPacks()
+  }
+
+  $: {
+    activePackFilter
+    refresh()
   }
 
   $: filteredCards = CARDS.filter(card => {
@@ -58,11 +84,6 @@
   $: collectedCount = currentPackStats.collected
   $: totalCount = currentPackStats.total
   $: progressPercent = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0
-
-  function refresh() {
-    collection = Storage.getCollection()
-    refreshPacks()
-  }
 
   function openCardDetail(card) {
     if (collection[card.id]) {

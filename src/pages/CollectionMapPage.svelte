@@ -15,6 +15,8 @@
     buildPrerequisiteMap
   } from '../data/mapData.js'
   import { checkAllAchievements, onAchievementUnlocked, triggerHiddenAchievement } from '../utils/achievementSystem.js'
+  import { getAllThemePacks, getPackCards, isPackUnlocked } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let selectedNode = null
   let mapData = { completedNodes: [], claimedRewards: [], bonusPoints: 0 }
@@ -23,6 +25,8 @@
   let scrollX = 0
   let showRewardToast = false
   let rewardToastInfo = null
+  let activePackFilter = 'all'
+  let packs = []
 
   const PATH_FILTERS = [
     { id: 'all', label: '全部路径', icon: '🗺️', color: '#ffffff' },
@@ -34,17 +38,21 @@
     }))
   ]
 
+  function refreshPacks() {
+    packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
+  }
+
   const prerequisiteMap = buildPrerequisiteMap()
 
-  function getGameContext() {
-    const stats = Storage.getStats()
-    const collection = Storage.getCollection()
+  function getGameContext(packId = 'all') {
+    const stats = Storage.getStats(packId)
+    const collection = Storage.getCollection(packId)
     const dailyFortune = Storage.getDailyFortune()
     const hiddenEventsLog = Storage.getHiddenEventsLog()
     const storyProgress = Storage.getStoryProgress()
 
     const uniqueCards = Object.keys(collection).length
-    const totalCards = CARDS.length
+    const totalCards = packId === 'all' ? CARDS.length : getPackCards(packId).length
 
     const rarityCounts = {}
     Object.values(CARD_RARITY).forEach(r => { rarityCounts[r] = 0 })
@@ -245,12 +253,12 @@
 
   function isNodeVisible(node) {
     if (node.alwaysVisible) return true
-    const status = getNodeStatus(node, getGameContext())
+    const status = getNodeStatus(node, getGameContext(activePackFilter))
     return status !== NODE_STATUS.LOCKED
   }
 
   function selectNode(node) {
-    const ctx = getGameContext()
+    const ctx = getGameContext(activePackFilter)
     const status = getNodeStatus(node, ctx)
     const isClaimed = mapData.claimedRewards.includes(node.id)
     selectedNode = {
@@ -356,9 +364,15 @@
 
   function refresh() {
     mapData = Storage.getCollectionMap()
+    refreshPacks()
     if (selectedNode) {
       selectNode(selectedNode.node)
     }
+  }
+
+  $: {
+    activePackFilter
+    refresh()
   }
 
   function goToCollection() {
@@ -407,7 +421,20 @@
   }
 
   $: connections = generatePathConnections()
-  $: ctx = getGameContext()
+  $: ctx = getGameContext(activePackFilter)
+
+  $: currentPackStats = (() => {
+    if (activePackFilter === 'all') {
+      return { total: CARDS.length, collected: Object.keys(ctx.collection).length }
+    }
+    const packCards = getPackCards(activePackFilter)
+    const collectedCount = packCards.filter(c => ctx.collection[c.id]).length
+    return { total: packCards.length, collected: collectedCount }
+  })()
+
+  $: collectedCount = currentPackStats.collected
+  $: totalCount = currentPackStats.total
+  $: collectionProgressPercent = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0
 
   $: completedCount = mapData.completedNodes.length
   $: totalCount = MAP_NODES.length
@@ -415,6 +442,11 @@
   $: bonusPoints = mapData.bonusPoints || 0
 
   let achievementUnsubscribe = null
+  let removePackListener
+
+  function handlePackChanged() {
+    refresh()
+  }
 
   onMount(() => {
     refresh()
@@ -423,10 +455,16 @@
     achievementUnsubscribe = onAchievementUnlocked(() => {
       refresh()
     })
+
+    removePackListener = handlePackChanged
+    window.addEventListener('packChanged', removePackListener)
   })
 
   onDestroy(() => {
     if (achievementUnsubscribe) achievementUnsubscribe()
+    if (removePackListener) {
+      window.removeEventListener('packChanged', removePackListener)
+    }
   })
 
   function scrollContainer(direction) {
@@ -441,6 +479,25 @@
 </script>
 
 <h1 class="page-title">◆ 收 藏 成 就 联 动 地 图 ◆</h1>
+
+<div class="pack-filter-bar">
+  <button 
+    class="pack-chip {activePackFilter === 'all' ? 'active' : ''}"
+    on:click={() => activePackFilter = 'all'}
+  >
+    📚 全部卡包
+  </button>
+  {#each packs as pack}
+    <button 
+      class="pack-chip {activePackFilter === pack.id ? 'active' : ''}"
+      style="--pack-color: {pack.color}"
+      on:click={() => activePackFilter = pack.id}
+    >
+      <span class="chip-icon">{pack.icon}</span>
+      <span>{pack.name}</span>
+    </button>
+  {/each}
+</div>
 
 <div class="map-overview">
   <div class="overview-main">
@@ -458,6 +515,14 @@
     </div>
     <div class="progress-meta mono">
       {completedCount} / {totalCount} 节点 · {progressPercent}%
+    </div>
+    <div class="pack-collection-info">
+      <span class="pack-label">
+        {activePackFilter === 'all' ? '总收集进度' : (getThemePack(activePackFilter)?.name || '') + '收集进度'}:
+      </span>
+      <span class="pack-progress">
+        {collectedCount} / {totalCount} ({collectionProgressPercent}%)
+      </span>
     </div>
   </div>
 
@@ -729,6 +794,66 @@
 {/if}
 
 <style>
+  .pack-filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pack-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .pack-chip:hover {
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+  }
+
+  .pack-chip.active {
+    background: color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 15%, transparent);
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 25%, transparent);
+  }
+
+  .chip-icon {
+    font-size: 14px;
+  }
+
+  .pack-collection-info {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .pack-label {
+    color: var(--text-dim);
+  }
+
+  .pack-progress {
+    color: var(--accent-cyan);
+  }
+
   .map-overview {
     background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
     border: 1px solid var(--border-glow);

@@ -146,6 +146,14 @@ export function onThemePackEvent(callback) {
   }
 }
 
+export function onPackChanged(callback) {
+  return onThemePackEvent((event) => {
+    if (event.type === 'packChanged') {
+      callback(event.data)
+    }
+  })
+}
+
 function notifyListeners(eventType, data) {
   listeners.forEach(cb => {
     try {

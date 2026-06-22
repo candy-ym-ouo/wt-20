@@ -354,15 +354,19 @@ function getDateSeed(dateStr) {
   return Math.abs(hash)
 }
 
-export function drawDailyFortune(consecutiveDays = 1) {
+export function drawDailyFortune(consecutiveDays = 1, packId = null) {
   const today = new Date().toDateString()
   const seed = getDateSeed(today + '_daily_fortune')
   
   const reward = getConsecutiveReward(consecutiveDays)
   
-  let cardPool = [...CARDS]
+  const cards = packId ? getPackCards(packId) : getCurrentPackCards()
+  const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
+  const actualPackId = packId || getCurrentPackId()
+  
+  let cardPool = cards.length > 0 ? [...cards] : [...CARDS]
   let weights = cardPool.map(card => {
-    let weight = RARITY_CONFIG[card.rarity].weight
+    let weight = (rarityConfig[card.rarity]?.weight ?? RARITY_CONFIG[card.rarity]?.weight ?? 1)
     if (reward) {
       if (reward.days >= 3 && card.rarity === CARD_RARITY.RARE) weight *= 1.5
       if (reward.days >= 14 && card.rarity === CARD_RARITY.EPIC) weight *= 1.8
@@ -389,21 +393,23 @@ export function drawDailyFortune(consecutiveDays = 1) {
   return {
     card: selectedCard,
     isReversed,
-    reading
+    reading,
+    packId: actualPackId
   }
 }
 
 export function saveDailyFortuneResult(result) {
-  const { card, isReversed, reading } = result
-  Storage.addToCollection(card.id, isReversed)
-  Storage.updateStats(card.rarity, isReversed)
-  const saved = Storage.saveDailyFortune(card.id, isReversed, reading)
+  const { card, isReversed, reading, packId } = result
+  const actualPackId = packId || getCurrentPackId()
+  Storage.addToCollection(card.id, isReversed, actualPackId)
+  Storage.updateStats(card.rarity, isReversed, actualPackId)
+  const saved = Storage.saveDailyFortune(card.id, isReversed, reading, actualPackId)
   checkAchievementsAfterAction('daily')
   checkSeasonTasksAfterAction('daily')
   return saved
 }
 
-export function drawThemeCards(theme, spreadTypeId) {
+export function drawThemeCards(theme, spreadTypeId, packId = null) {
   const themeConfig = THEME_CONFIG[theme]
   if (!themeConfig) throw new Error(`Unknown theme: ${theme}`)
 
@@ -411,6 +417,11 @@ export function drawThemeCards(theme, spreadTypeId) {
   if (!spreadType) throw new Error(`Unknown spread type: ${spreadTypeId}`)
 
   const cardCount = spreadType.cardCount
+  const actualPackId = packId || getCurrentPackId()
+  const cards = packId ? getPackCards(packId) : getCurrentPackCards()
+  const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
+  const cardPool = cards.length > 0 ? cards : CARDS
+  
   const drawnIds = new Set()
   const results = []
 
@@ -418,15 +429,18 @@ export function drawThemeCards(theme, spreadTypeId) {
     let card
     let attempts = 0
     do {
-      const draw = drawSingleCard()
-      card = draw
+      const selectedCard = weightedRandomSelectWithConfig(cardPool, rarityConfig)
+      const isReversed = Math.random() < 0.35
+      const reading = isReversed ? selectedCard.reversed : selectedCard.upright
+      card = { card: selectedCard, isReversed, reading }
       attempts++
     } while (drawnIds.has(card.card.id) && attempts < 20)
 
     drawnIds.add(card.card.id)
     results.push({
       ...card,
-      position: spreadType.positions[i]
+      position: spreadType.positions[i],
+      packId: actualPackId
     })
   }
 
@@ -434,19 +448,22 @@ export function drawThemeCards(theme, spreadTypeId) {
 }
 
 export function saveThemeDivinationResult(theme, spreadTypeId, results, question = '') {
+  const packId = results[0]?.packId || getCurrentPackId()
   results.forEach(({ card, isReversed }) => {
-    Storage.addToCollection(card.id, isReversed)
-    Storage.updateStats(card.rarity, isReversed)
+    Storage.addToCollection(card.id, isReversed, packId)
+    Storage.updateStats(card.rarity, isReversed, packId)
   })
 
   const record = {
     theme,
     spreadTypeId,
     question,
-    cards: results.map(({ card, isReversed, position }) => ({
+    packId,
+    cards: results.map(({ card, isReversed, position, packId }) => ({
       cardId: card.id,
       isReversed,
       position,
+      packId,
       title: isReversed ? card.reversed.title : card.upright.title,
       meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
       advice: isReversed ? card.reversed.advice : card.upright.advice,
@@ -471,11 +488,16 @@ export function getAllThemes() {
   return Object.values(THEME_CONFIG)
 }
 
-export function drawMultiSpread(spreadId) {
+export function drawMultiSpread(spreadId, packId = null) {
   const spreadConfig = MULTI_SPREAD_CONFIG[spreadId]
   if (!spreadConfig) throw new Error(`Unknown spread: ${spreadId}`)
 
   const cardCount = spreadConfig.cardCount
+  const actualPackId = packId || getCurrentPackId()
+  const cards = packId ? getPackCards(packId) : getCurrentPackCards()
+  const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
+  const cardPool = cards.length > 0 ? cards : CARDS
+  
   const drawnIds = new Set()
   const results = []
 
@@ -483,8 +505,10 @@ export function drawMultiSpread(spreadId) {
     let card
     let attempts = 0
     do {
-      const draw = drawSingleCard()
-      card = draw
+      const selectedCard = weightedRandomSelectWithConfig(cardPool, rarityConfig)
+      const isReversed = Math.random() < 0.35
+      const reading = isReversed ? selectedCard.reversed : selectedCard.upright
+      card = { card: selectedCard, isReversed, reading }
       attempts++
     } while (drawnIds.has(card.card.id) && attempts < 20)
 
@@ -494,7 +518,8 @@ export function drawMultiSpread(spreadId) {
       ...card,
       position: posConfig.name,
       positionId: posConfig.id,
-      positionDesc: posConfig.desc
+      positionDesc: posConfig.desc,
+      packId: actualPackId
     })
   }
 
@@ -502,20 +527,23 @@ export function drawMultiSpread(spreadId) {
 }
 
 export function saveMultiSpreadResult(spreadId, results, question = '') {
+  const packId = results[0]?.packId || getCurrentPackId()
   results.forEach(({ card, isReversed }) => {
-    Storage.addToCollection(card.id, isReversed)
-    Storage.updateStats(card.rarity, isReversed)
+    Storage.addToCollection(card.id, isReversed, packId)
+    Storage.updateStats(card.rarity, isReversed, packId)
   })
 
   const record = {
     spreadId,
     question,
-    cards: results.map(({ card, isReversed, position, positionId, positionDesc }) => ({
+    packId,
+    cards: results.map(({ card, isReversed, position, positionId, positionDesc, packId }) => ({
       cardId: card.id,
       isReversed,
       position,
       positionId,
       positionDesc,
+      packId,
       title: isReversed ? card.reversed.title : card.upright.title,
       meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
       advice: isReversed ? card.reversed.advice : card.upright.advice,
@@ -728,12 +756,13 @@ function generateRecommendationSummary(category, urgency) {
   return parts.join(' | ')
 }
 
-export function drawQuestionDrivenCards(recommendation) {
+export function drawQuestionDrivenCards(recommendation, packId = null) {
   const spread = recommendation
+  const actualPackId = packId || getCurrentPackId()
   if (spread.type === 'theme') {
-    return drawThemeCards(spread.themeId, spread.spreadTypeId)
+    return drawThemeCards(spread.themeId, spread.spreadTypeId, actualPackId)
   } else {
-    return drawMultiSpread(spread.spreadId)
+    return drawMultiSpread(spread.spreadId, actualPackId)
   }
 }
 
@@ -766,9 +795,10 @@ export function getSpreadMeta(recommendation) {
 }
 
 export function saveQuestionDrivenResult(questionContext, recommendation, spreadMeta, results, userInterpretation = '') {
+  const packId = results[0]?.packId || getCurrentPackId()
   results.forEach(({ card, isReversed }) => {
-    Storage.addToCollection(card.id, isReversed)
-    Storage.updateStats(card.rarity, isReversed)
+    Storage.addToCollection(card.id, isReversed, packId)
+    Storage.updateStats(card.rarity, isReversed, packId)
   })
 
   const record = {
@@ -786,12 +816,14 @@ export function saveQuestionDrivenResult(questionContext, recommendation, spread
       spreadId: recommendation.spreadId,
     },
     userInterpretation,
-    cards: results.map(({ card, isReversed, position, positionId, positionDesc }) => ({
+    packId,
+    cards: results.map(({ card, isReversed, position, positionId, positionDesc, packId }) => ({
       cardId: card.id,
       isReversed,
       position,
       positionId,
       positionDesc,
+      packId,
       title: isReversed ? card.reversed.title : card.upright.title,
       meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
       advice: isReversed ? card.reversed.advice : card.upright.advice,

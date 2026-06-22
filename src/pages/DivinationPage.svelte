@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { drawThemeCards, saveThemeDivinationResult, getAllThemes } from '../utils/cardSystem.js'
   import { Storage } from '../utils/storage.js'
   import { THEME_CONFIG } from '../data/constants.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
+  import ThemePackSelector from '../components/ThemePackSelector.svelte'
+  import { getCurrentPackId, getCurrentPack, onPackChanged } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let step = 'select-theme'
   let selectedTheme = null
@@ -15,9 +18,16 @@
   let showResult = false
   let stats = Storage.getStats()
   let themes = getAllThemes()
+  let currentPackId = getCurrentPackId()
+  let removePackListener
 
   function refreshStats() {
-    stats = Storage.getStats()
+    stats = Storage.getStats(currentPackId)
+    currentPackId = getCurrentPackId()
+  }
+
+  function handlePackChanged() {
+    refreshStats()
   }
 
   function selectTheme(themeId) {
@@ -48,7 +58,7 @@
 
     await new Promise(resolve => setTimeout(resolve, 800))
 
-    const results = drawThemeCards(selectedTheme.id, selectedSpread.id)
+    const results = drawThemeCards(selectedTheme.id, selectedSpread.id, currentPackId)
     drawResults = results
 
     saveThemeDivinationResult(selectedTheme.id, selectedSpread.id, results, question)
@@ -78,12 +88,32 @@
     window.dispatchEvent(event)
   }
 
+  $: currentPack = getThemePack(currentPackId)
+
   onMount(() => {
     refreshStats()
+    removePackListener = onPackChanged(handlePackChanged)
+  })
+
+  onDestroy(() => {
+    if (removePackListener) {
+      removePackListener()
+    }
   })
 </script>
 
 <h1 class="page-title">◆ 主 题 占 卜 ◆</h1>
+
+<div class="pack-selector-wrapper">
+  <ThemePackSelector compact={true} />
+</div>
+
+{#if currentPack}
+  <div class="pack-info-badge" style="background: {currentPack.color + '22'}; border-color: {currentPack.color}">
+    <span class="pack-icon">{currentPack.icon}</span>
+    <span>当前使用「{currentPack.name}」卡包进行占卜</span>
+  </div>
+{/if}
 
 <div class="stats-grid">
   <div class="stat-card">
@@ -572,5 +602,29 @@
 
   .history-link:hover {
     text-shadow: 0 0 10px var(--accent-cyan);
+  }
+
+  .pack-selector-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .pack-info-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .pack-icon {
+    font-size: 18px;
   }
 </style>

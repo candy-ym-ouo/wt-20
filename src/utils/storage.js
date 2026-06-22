@@ -74,35 +74,90 @@ export const Storage = {
     return safeGet(STORAGE_KEYS.COLLECTION, {})
   },
 
-  addToCollection(cardId, isReversed = false) {
+  getCollectionByPack(packId = null) {
     const collection = this.getCollection()
+    if (!packId) return collection
+    
+    const filtered = {}
+    Object.entries(collection).forEach(([cardId, data]) => {
+      if (data.packs && data.packs[packId]) {
+        filtered[cardId] = data.packs[packId]
+      }
+    })
+    return filtered
+  },
+
+  addToCollection(cardId, isReversed = false, packId = 'core') {
+    const collection = this.getCollection()
+    const actualPackId = packId || 'core'
+    
     if (!collection[cardId]) {
       collection[cardId] = {
+        firstDraw: Date.now(),
+        drawCount: 0,
+        uprightCount: 0,
+        reversedCount: 0,
+        packs: {}
+      }
+    }
+    
+    if (!collection[cardId].packs) {
+      collection[cardId].packs = {}
+    }
+    if (!collection[cardId].packs[actualPackId]) {
+      collection[cardId].packs[actualPackId] = {
         firstDraw: Date.now(),
         drawCount: 0,
         uprightCount: 0,
         reversedCount: 0
       }
     }
+    
     collection[cardId].drawCount++
+    collection[cardId].packs[actualPackId].drawCount++
     if (isReversed) {
       collection[cardId].reversedCount++
+      collection[cardId].packs[actualPackId].reversedCount++
     } else {
       collection[cardId].uprightCount++
+      collection[cardId].packs[actualPackId].uprightCount++
     }
     collection[cardId].lastDraw = Date.now()
+    collection[cardId].packs[actualPackId].lastDraw = Date.now()
+    
     safeSet(STORAGE_KEYS.COLLECTION, collection)
     return collection
   },
 
-  getCollectionStats() {
-    const collection = this.getCollection()
-    const ids = Object.keys(collection)
-    const totalDraws = ids.reduce((sum, id) => sum + collection[id].drawCount, 0)
-    return {
-      uniqueCards: ids.length,
-      totalDraws,
-      collection
+  getCollectionStats(packId = null) {
+    if (!packId) {
+      const collection = this.getCollection()
+      const ids = Object.keys(collection)
+      const totalDraws = ids.reduce((sum, id) => sum + collection[id].drawCount, 0)
+      return {
+        uniqueCards: ids.length,
+        totalDraws,
+        collection
+      }
+    } else {
+      const collection = this.getCollection()
+      const packCollection = {}
+      let uniqueCards = 0
+      let totalDraws = 0
+      
+      Object.entries(collection).forEach(([cardId, data]) => {
+        if (data.packs && data.packs[packId]) {
+          packCollection[cardId] = data.packs[packId]
+          uniqueCards++
+          totalDraws += data.packs[packId].drawCount
+        }
+      })
+      
+      return {
+        uniqueCards,
+        totalDraws,
+        collection: packCollection
+      }
     }
   },
 
@@ -128,20 +183,47 @@ export const Storage = {
     return !!achievements[achievementId]
   },
 
-  getStats() {
-    return safeGet(STORAGE_KEYS.STATS, {
+  getStats(packId = null) {
+    const allStats = safeGet(STORAGE_KEYS.STATS, {
       totalDraws: 0,
       reversedDraws: 0,
       legendaryCount: 0,
       epicCount: 0,
       rareCount: 0,
       commonCount: 0,
-      lastDrawDate: null
+      lastDrawDate: null,
+      packs: {}
     })
+    
+    if (!packId) {
+      return allStats
+    }
+    
+    if (!allStats.packs) {
+      allStats.packs = {}
+    }
+    if (!allStats.packs[packId]) {
+      allStats.packs[packId] = {
+        totalDraws: 0,
+        reversedDraws: 0,
+        legendaryCount: 0,
+        epicCount: 0,
+        rareCount: 0,
+        commonCount: 0,
+        lastDrawDate: null
+      }
+    }
+    
+    return {
+      ...allStats,
+      ...allStats.packs[packId]
+    }
   },
 
-  updateStats(cardRarity, isReversed) {
+  updateStats(cardRarity, isReversed, packId = 'core') {
     const stats = this.getStats()
+    const actualPackId = packId || 'core'
+    
     stats.totalDraws++
     stats.lastDrawDate = Date.now()
     if (isReversed) stats.reversedDraws++
@@ -149,6 +231,30 @@ export const Storage = {
     if (cardRarity === 'epic') stats.epicCount++
     if (cardRarity === 'rare') stats.rareCount++
     if (cardRarity === 'common') stats.commonCount++
+    
+    if (!stats.packs) {
+      stats.packs = {}
+    }
+    if (!stats.packs[actualPackId]) {
+      stats.packs[actualPackId] = {
+        totalDraws: 0,
+        reversedDraws: 0,
+        legendaryCount: 0,
+        epicCount: 0,
+        rareCount: 0,
+        commonCount: 0,
+        lastDrawDate: null
+      }
+    }
+    
+    stats.packs[actualPackId].totalDraws++
+    stats.packs[actualPackId].lastDrawDate = Date.now()
+    if (isReversed) stats.packs[actualPackId].reversedDraws++
+    if (cardRarity === 'legendary') stats.packs[actualPackId].legendaryCount++
+    if (cardRarity === 'epic') stats.packs[actualPackId].epicCount++
+    if (cardRarity === 'rare') stats.packs[actualPackId].rareCount++
+    if (cardRarity === 'common') stats.packs[actualPackId].commonCount++
+    
     safeSet(STORAGE_KEYS.STATS, stats)
     return stats
   },
@@ -243,10 +349,11 @@ export const Storage = {
     })
   },
 
-  saveDailyFortune(cardId, isReversed, reading) {
+  saveDailyFortune(cardId, isReversed, reading, packId = 'core') {
     const today = new Date().toDateString()
     const fortune = this.getDailyFortune()
     const yesterday = new Date(Date.now() - 86400000).toDateString()
+    const actualPackId = packId || 'core'
 
     if (fortune.lastConsecutiveDate === yesterday) {
       fortune.consecutiveDays++
@@ -263,7 +370,8 @@ export const Storage = {
       meaning: reading.meaning,
       advice: reading.advice,
       fortune: reading.fortune,
-      date: today
+      date: today,
+      packId: actualPackId
     }
 
     safeSet(STORAGE_KEYS.DAILY_FORTUNE, fortune)
@@ -280,7 +388,8 @@ export const Storage = {
       date: today,
       timestamp: Date.now(),
       consecutiveDays: fortune.consecutiveDays,
-      spreadType: 'daily'
+      spreadType: 'daily',
+      packId: actualPackId
     })
     if (history.length > 365) {
       history.splice(365)

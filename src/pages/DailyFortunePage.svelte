@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { Storage } from '../utils/storage.js'
   import { drawDailyFortune, saveDailyFortuneResult, getCardById } from '../utils/cardSystem.js'
   import { getConsecutiveReward, getNextReward, CONSECUTIVE_REWARDS } from '../data/constants.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
+  import ThemePackSelector from '../components/ThemePackSelector.svelte'
+  import { getCurrentPackId, getCurrentPack, onPackChanged } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let fortune = Storage.getDailyFortune()
   let hasDrawnToday = Storage.hasDrawnToday()
@@ -13,20 +16,28 @@
   let showResult = false
   let drawResults = null
   let cardRevealed = false
+  let currentPackId = getCurrentPackId()
+  let removePackListener
 
   function refresh() {
     fortune = Storage.getDailyFortune()
     hasDrawnToday = Storage.hasDrawnToday()
+    currentPackId = getCurrentPackId()
     if (hasDrawnToday && fortune.todayCard) {
       const card = getCardById(fortune.todayCard.cardId)
       if (card) {
         todayCard = {
           card,
           isReversed: fortune.todayCard.isReversed,
-          reading: fortune.todayCard.isReversed ? card.reversed : card.upright
+          reading: fortune.todayCard.isReversed ? card.reversed : card.upright,
+          packId: fortune.todayCard.packId
         }
       }
     }
+  }
+
+  function handlePackChanged() {
+    refresh()
   }
 
   function getTodayDateStr() {
@@ -51,7 +62,7 @@
         : 1)
       : 1
 
-    const result = drawDailyFortune(consecutiveDays)
+    const result = drawDailyFortune(consecutiveDays, currentPackId)
     drawResults = [result]
 
     setTimeout(() => {
@@ -86,16 +97,37 @@
     return Math.min(100, Math.max(0, progress))
   }
 
+  $: currentPack = getThemePack(currentPackId)
+  $: todayCardPack = todayCard?.packId ? getThemePack(todayCard.packId) : null
+
   onMount(() => {
     refresh()
+    removePackListener = onPackChanged(handlePackChanged)
+  })
+
+  onDestroy(() => {
+    if (removePackListener) {
+      removePackListener()
+    }
   })
 </script>
 
 <h1 class="page-title">◆ 每 日 命 运 签 ◆</h1>
 
+<div class="pack-selector-wrapper">
+  <ThemePackSelector compact={true} />
+</div>
+
 <div class="date-badge mono">
   🌐 {getTodayDateStr()}
 </div>
+
+{#if todayCardPack}
+  <div class="pack-info-badge" style="background: {todayCardPack.color + '22'}; border-color: {todayCardPack.color}">
+    <span class="pack-icon">{todayCardPack.icon}</span>
+    <span>今日签来自「{todayCardPack.name}」</span>
+  </div>
+{/if}
 
 <div class="streak-card">
   <div class="streak-header">
@@ -520,5 +552,29 @@
 
   .daily-actions .btn {
     flex: 1;
+  }
+
+  .pack-selector-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .pack-info-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .pack-icon {
+    font-size: 18px;
   }
 </style>

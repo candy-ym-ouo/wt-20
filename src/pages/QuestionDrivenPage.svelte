@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import {
     QUESTION_CATEGORIES,
     URGENCY_LEVELS,
@@ -17,6 +17,9 @@
   import { getShopItemById } from '../data/fateShop.js'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
+  import ThemePackSelector from '../components/ThemePackSelector.svelte'
+  import { getCurrentPackId, getCurrentPack, onPackChanged } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let step = 'question'
   let question = ''
@@ -31,9 +34,16 @@
   let stats = Storage.getStats()
   let ownedItems = {}
   let currentRecordId = null
+  let currentPackId = getCurrentPackId()
+  let removePackListener
 
   function refreshStats() {
-    stats = Storage.getStats()
+    stats = Storage.getStats(currentPackId)
+    currentPackId = getCurrentPackId()
+  }
+
+  function handlePackChanged() {
+    refreshStats()
   }
 
   function isSpreadUnlocked(rec) {
@@ -87,7 +97,7 @@
 
     await new Promise(resolve => setTimeout(resolve, 1200))
 
-    const results = drawQuestionDrivenCards(selectedSpreadRec)
+    const results = drawQuestionDrivenCards(selectedSpreadRec, currentPackId)
     drawResults = results
 
     const questionContext = {
@@ -137,16 +147,33 @@
     window.dispatchEvent(event)
   }
 
+  $: currentPack = getThemePack(currentPackId)
+
   onMount(() => {
     refreshStats()
     const unsubscribe = ownedShopItems.subscribe(items => {
       ownedItems = items
     })
-    return () => unsubscribe && unsubscribe()
+    removePackListener = onPackChanged(handlePackChanged)
+    return () => {
+      if (unsubscribe) unsubscribe()
+      if (removePackListener) removePackListener()
+    }
   })
 </script>
 
 <h1 class="page-title">◆ 问 题 驱 动 占 卜 ◆</h1>
+
+<div class="pack-selector-wrapper">
+  <ThemePackSelector compact={true} />
+</div>
+
+{#if currentPack}
+  <div class="pack-info-badge" style="background: {currentPack.color + '22'}; border-color: {currentPack.color}">
+    <span class="pack-icon">{currentPack.icon}</span>
+    <span>当前使用「{currentPack.name}」卡包进行占卜</span>
+  </div>
+{/if}
 
 <div class="flow-indicator">
   <div class="flow-step {step === 'question' ? 'active' : ''} {step !== 'question' && recommendationResult ? 'done' : ''}">
@@ -1073,6 +1100,30 @@
 
   .history-link:hover {
     text-shadow: 0 0 10px var(--accent-cyan);
+  }
+
+  .pack-selector-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .pack-info-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .pack-icon {
+    font-size: 18px;
   }
 
   @keyframes fade-in {
