@@ -1,7 +1,14 @@
 <script>
+  import { onMount } from 'svelte'
   import CardDisplay from './CardDisplay.svelte'
   import { RARITY_CONFIG, THEME_CONFIG } from '../data/constants.js'
   import ShareModal from './ShareModal.svelte'
+  import {
+    getActiveWishes,
+    linkDrawToWish,
+    buildDrawRecordForLinking,
+    WISH_STATUS
+  } from '../utils/wishSystem.js'
 
   export let results
   export let spreadType
@@ -30,6 +37,16 @@
 
   let modalTitle = ''
   let showShareModal = false
+  let showWishSelector = false
+  let activeWishes = []
+  let linkedWishId = null
+  let linkSuccess = false
+
+  onMount(() => {
+    activeWishes = getActiveWishes().filter(w => 
+      w.status === WISH_STATUS.ACTIVE || w.status === WISH_STATUS.IN_PROGRESS
+    )
+  })
 
   function hasPosition(result) {
     return !!result.position
@@ -51,6 +68,22 @@
     const event = new CustomEvent('navigate', { detail: 'review' })
     window.dispatchEvent(event)
     onClose()
+  }
+
+  function goToWishList() {
+    const event = new CustomEvent('navigate', { detail: 'wishlist' })
+    window.dispatchEvent(event)
+    onClose()
+  }
+
+  function handleLinkToWish(wishId) {
+    const drawRecord = buildDrawRecordForLinking(results, spreadType, question || '')
+    linkDrawToWish(wishId, drawRecord)
+    linkedWishId = wishId
+    linkSuccess = true
+    setTimeout(() => {
+      showWishSelector = false
+    }, 1000)
   }
 
   $: derivedSpreadName = spreadName || (() => {
@@ -139,19 +172,71 @@
       {/each}
     </div>
 
-    <div class="action-row-secondary">
-      <button class="btn btn-block btn-yellow" on:click={openShare}>
-        📤 分享结果
-      </button>
-      <button class="btn btn-block btn-magenta" on:click={goToReview}>
-        📊 历史回顾
-      </button>
-    </div>
+    {#if !showWishSelector}
+      <div class="action-row-secondary">
+        <button class="btn btn-block btn-yellow" on:click={openShare}>
+          📤 分享结果
+        </button>
+        <button class="btn btn-block btn-magenta" on:click={goToReview}>
+          📊 历史回顾
+        </button>
+      </div>
 
-    <div class="action-row">
-      <button class="btn btn-block" on:click={onClose}>关闭</button>
-      <button class="btn btn-block btn-primary" on:click={onDrawAgain}>再次抽卡</button>
-    </div>
+      <div class="action-row-secondary">
+        {#if activeWishes.length > 0}
+          <button class="btn btn-block btn-cyan" on:click={() => showWishSelector = true}>
+            ✨ 关联到愿望
+          </button>
+        {:else}
+          <button class="btn btn-block btn-cyan" on:click={goToWishList}>
+            ✨ 去创建愿望
+          </button>
+        {/if}
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-block" on:click={onClose}>关闭</button>
+        <button class="btn btn-block btn-primary" on:click={onDrawAgain}>再次抽卡</button>
+      </div>
+    {:else}
+      <div class="wish-selector">
+        <div class="wish-selector-header">
+          <span class="wish-selector-title">✨ 选择要关联的愿望</span>
+          <button class="close-btn" on:click={() => showWishSelector = false}>✕</button>
+        </div>
+        
+        {#if linkSuccess}
+          <div class="link-success">
+            <span class="success-icon">✅</span>
+            <span class="success-text">关联成功！</span>
+          </div>
+        {:else}
+          <div class="wish-selector-list">
+            {#each activeWishes as wish}
+              <div
+                class="wish-selector-item {linkedWishId === wish.id ? 'selected' : ''}"
+                on:click={() => handleLinkToWish(wish.id)}
+              >
+                <span class="wish-item-icon">{wish._category?.icon || '✨'}</span>
+                <span class="wish-item-title">{wish.title}</span>
+                {#if linkedWishId === wish.id}
+                  <span class="wish-item-check">✓</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+          
+          <div class="wish-selector-footer">
+            <button class="btn btn-secondary" on:click={() => showWishSelector = false}>
+              取消
+            </button>
+            <button class="btn btn-primary" on:click={goToWishList}>
+              管理愿望
+            </button>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -303,5 +388,114 @@
     flex: 1;
     font-size: 12px;
     padding: 10px 16px;
+  }
+
+  .btn-cyan {
+    background: rgba(0, 229, 255, 0.15);
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+  }
+
+  .btn-cyan:hover {
+    background: rgba(0, 229, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+  }
+
+  .wish-selector {
+    animation: fade-in 0.3s ease;
+  }
+
+  .wish-selector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--border-glow);
+  }
+
+  .wish-selector-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+  }
+
+  .wish-selector-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+  }
+
+  .wish-selector-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .wish-selector-item:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(0, 229, 255, 0.05);
+    transform: translateX(4px);
+  }
+
+  .wish-selector-item.selected {
+    border-color: var(--accent-green);
+    background: rgba(105, 240, 174, 0.1);
+  }
+
+  .wish-item-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .wish-item-title {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .wish-item-check {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .wish-selector-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .link-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px 20px;
+    color: var(--accent-green);
+    animation: success-pulse 0.5s ease;
+  }
+
+  @keyframes success-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .success-icon {
+    font-size: 32px;
+  }
+
+  .success-text {
+    font-size: 18px;
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--accent-green);
   }
 </style>

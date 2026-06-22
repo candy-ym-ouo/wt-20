@@ -15,7 +15,8 @@ const STORAGE_KEYS = {
   STORY_PROGRESS: 'cyber_divination_story_progress',
   STORY_HISTORY: 'cyber_divination_story_history',
   TEMP_EFFECTS: 'cyber_divination_temp_effects',
-  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects'
+  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
+  WISH_LIST: 'cyber_divination_wish_list'
 }
 
 function safeGet(key, defaultValue) {
@@ -171,7 +172,8 @@ export const Storage = {
       stats: this.getStats(),
       settings: this.getSettings(),
       decks: this.getDecks(),
-      themeAlbums: this.getThemeAlbums()
+      themeAlbums: this.getThemeAlbums(),
+      wishList: this.getWishList()
     }
   },
 
@@ -188,6 +190,7 @@ export const Storage = {
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
       if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
       if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
+      if (data.wishList) safeSet(STORAGE_KEYS.WISH_LIST, data.wishList)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -544,5 +547,97 @@ export const Storage = {
 
   getAllActiveEffects() {
     return [...this.getTempEffects(), ...this.getPermanentEffects()]
+  },
+
+  getWishList() {
+    return safeGet(STORAGE_KEYS.WISH_LIST, [])
+  },
+
+  getWishById(wishId) {
+    const wishes = this.getWishList()
+    return wishes.find(w => w.id === wishId) || null
+  },
+
+  addWish(wish) {
+    const wishes = this.getWishList()
+    const newWish = {
+      ...wish,
+      id: wish.id || `wish_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      status: wish.status || 'active',
+      linkedDraws: wish.linkedDraws || [],
+      reviews: wish.reviews || []
+    }
+    wishes.unshift(newWish)
+    if (wishes.length > 100) {
+      wishes.splice(100)
+    }
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return newWish
+  },
+
+  updateWish(wishId, updates) {
+    const wishes = this.getWishList()
+    const index = wishes.findIndex(w => w.id === wishId)
+    if (index === -1) return null
+    
+    wishes[index] = {
+      ...wishes[index],
+      ...updates,
+      updatedAt: Date.now()
+    }
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wishes[index]
+  },
+
+  deleteWish(wishId) {
+    const wishes = this.getWishList()
+    const filtered = wishes.filter(w => w.id !== wishId)
+    safeSet(STORAGE_KEYS.WISH_LIST, filtered)
+    return filtered
+  },
+
+  linkDrawToWish(wishId, drawRecord) {
+    const wishes = this.getWishList()
+    const wish = wishes.find(w => w.id === wishId)
+    if (!wish) return null
+    
+    if (!wish.linkedDraws) {
+      wish.linkedDraws = []
+    }
+    
+    wish.linkedDraws.push({
+      ...drawRecord,
+      linkedAt: Date.now()
+    })
+    wish.updatedAt = Date.now()
+    
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wish
+  },
+
+  addReviewToWish(wishId, review) {
+    const wishes = this.getWishList()
+    const wish = wishes.find(w => w.id === wishId)
+    if (!wish) return null
+    
+    if (!wish.reviews) {
+      wish.reviews = []
+    }
+    
+    wish.reviews.push({
+      ...review,
+      id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: Date.now()
+    })
+    wish.updatedAt = Date.now()
+    
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wish
+  },
+
+  clearWishList() {
+    safeSet(STORAGE_KEYS.WISH_LIST, [])
   }
 }
