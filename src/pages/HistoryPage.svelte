@@ -31,6 +31,49 @@
   let packs = []
   let removePackListener
 
+  let timeFilter = 'all'
+  let spreadTypeFilter = 'all'
+  let rarityFilter = 'all'
+  let orientationFilter = 'all'
+  let showFilters = false
+
+  const TIME_OPTIONS = [
+    { id: 'all', label: '全部时间', icon: '🕰️' },
+    { id: 'today', label: '今天', icon: '☀️' },
+    { id: 'yesterday', label: '昨天', icon: '🌙' },
+    { id: '7days', label: '近7天', icon: '📅' },
+    { id: '30days', label: '近30天', icon: '🗓️' }
+  ]
+
+  const SPREAD_TYPE_OPTIONS = [
+    { id: 'all', label: '全部类型', icon: '🎴' },
+    { id: 'single', label: '单张抽卡', icon: '1️⃣' },
+    { id: 'three', label: '三牌阵', icon: '3️⃣' },
+    { id: 'cross', label: '十字阵', icon: '✚' },
+    { id: 'relationship', label: '关系阵', icon: '💕' },
+    { id: 'decision', label: '抉择阵', icon: '⚖️' },
+    { id: 'celestial', label: '天界阵', icon: '☁️' },
+    { id: 'abyss', label: '深渊阵', icon: '🌑' },
+    { id: 'temporal', label: '时间阵', icon: '⏰' },
+    { id: 'theme', label: '主题占卜', icon: '🔮' },
+    { id: 'daily', label: '每日签', icon: '🎐' }
+  ]
+
+  const RARITY_OPTIONS = [
+    { id: 'all', label: '全部稀有度', icon: '✨' },
+    { id: 'legendary', label: '传说', icon: '👑', color: '#ffd54f' },
+    { id: 'epic', label: '史诗', icon: '💜', color: '#ba68c8' },
+    { id: 'rare', label: '稀有', icon: '💙', color: '#4fc3f7' },
+    { id: 'common', label: '普通', icon: '⚪', color: '#8a8a9a' }
+  ]
+
+  const ORIENTATION_OPTIONS = [
+    { id: 'all', label: '正逆不限', icon: '🔄' },
+    { id: 'upright', label: '仅正位', icon: '⬆️' },
+    { id: 'reversed', label: '仅逆位', icon: '⬇️' },
+    { id: 'mixed', label: '混合位', icon: '🔀' }
+  ]
+
   function refreshPacks() {
     packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
   }
@@ -51,11 +94,140 @@
     })
   }
 
-  $: filteredHistory = filterByPack(history, activePackFilter)
-  $: filteredDailyHistory = filterByPack(dailyHistory, activePackFilter)
-  $: filteredThemeHistory = filterByPack(themeHistory, activePackFilter)
-  $: filteredSpreadHistory = filterByPack(spreadHistory, activePackFilter)
-  $: filteredQdHistory = filterByPack(qdHistory, activePackFilter)
+  function getTimeRange(filterId) {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    switch (filterId) {
+      case 'today':
+        return { start: today, end: now.getTime() }
+      case 'yesterday':
+        return { start: today - 86400000, end: today }
+      case '7days':
+        return { start: today - 6 * 86400000, end: now.getTime() }
+      case '30days':
+        return { start: today - 29 * 86400000, end: now.getTime() }
+      default:
+        return null
+    }
+  }
+
+  function filterByTime(records, filterId) {
+    const range = getTimeRange(filterId)
+    if (!range) return records
+    return records.filter(r => {
+      const ts = r.timestamp || 0
+      return ts >= range.start && ts <= range.end
+    })
+  }
+
+  function getRecordSpreadType(record, tabType) {
+    if (tabType === 'daily') return 'daily'
+    if (tabType === 'theme') return 'theme'
+    if (tabType === 'spread') return record.spreadId || 'unknown'
+    if (tabType === 'question-driven') {
+      if (record.spreadMeta?.type === 'multi-spread' && record.spreadMeta?.spreadId) {
+        return record.spreadMeta.spreadId
+      }
+      if (record._cards && record._cards.length === 1) return 'single'
+      if (record._cards && record._cards.length === 3) return 'three'
+      return 'qd'
+    }
+    return record.spreadType || 'unknown'
+  }
+
+  function filterBySpreadType(records, filterId, tabType) {
+    if (filterId === 'all') return records
+    return records.filter(r => {
+      const type = getRecordSpreadType(r, tabType)
+      if (filterId === 'theme') return tabType === 'theme'
+      if (filterId === 'daily') return tabType === 'daily'
+      return type === filterId
+    })
+  }
+
+  function getRecordCards(record) {
+    if (record._card) return [record._card]
+    if (record._cards) return record._cards.map(c => c._card || c)
+    return []
+  }
+
+  function getRecordRarities(record) {
+    const cards = getRecordCards(record)
+    return cards.map(c => c?.rarity).filter(Boolean)
+  }
+
+  function filterByRarity(records, filterId) {
+    if (filterId === 'all') return records
+    return records.filter(r => {
+      const rarities = getRecordRarities(r)
+      return rarities.includes(filterId)
+    })
+  }
+
+  function getRecordOrientations(record) {
+    const isReversedList = []
+    if (record.isReversed !== undefined) {
+      isReversedList.push(record.isReversed)
+    }
+    if (record._cards) {
+      record._cards.forEach(c => {
+        if (c.isReversed !== undefined) isReversedList.push(c.isReversed)
+      })
+    }
+    if (record.cards) {
+      record.cards.forEach(c => {
+        if (c.isReversed !== undefined) isReversedList.push(c.isReversed)
+      })
+    }
+    return isReversedList
+  }
+
+  function filterByOrientation(records, filterId) {
+    if (filterId === 'all') return records
+    return records.filter(r => {
+      const orientations = getRecordOrientations(r)
+      if (orientations.length === 0) return filterId === 'upright'
+      const hasUpright = orientations.some(o => !o)
+      const hasReversed = orientations.some(o => o)
+      switch (filterId) {
+        case 'upright':
+          return hasUpright && !hasReversed
+        case 'reversed':
+          return hasReversed && !hasUpright
+        case 'mixed':
+          return hasUpright && hasReversed
+        default:
+          return true
+      }
+    })
+  }
+
+  function applyAllFilters(records, tabType) {
+    let result = filterByPack(records, activePackFilter)
+    result = filterByTime(result, timeFilter)
+    result = filterBySpreadType(result, spreadTypeFilter, tabType)
+    result = filterByRarity(result, rarityFilter)
+    result = filterByOrientation(result, orientationFilter)
+    return result
+  }
+
+  function resetFilters() {
+    timeFilter = 'all'
+    spreadTypeFilter = 'all'
+    rarityFilter = 'all'
+    orientationFilter = 'all'
+  }
+
+  function hasActiveFilters() {
+    return timeFilter !== 'all' || spreadTypeFilter !== 'all' || rarityFilter !== 'all' || orientationFilter !== 'all'
+  }
+
+  $: filteredHistory = applyAllFilters(history, 'divination')
+  $: filteredDailyHistory = applyAllFilters(dailyHistory, 'daily')
+  $: filteredThemeHistory = applyAllFilters(themeHistory, 'theme')
+  $: filteredSpreadHistory = applyAllFilters(spreadHistory, 'spread')
+  $: filteredQdHistory = applyAllFilters(qdHistory, 'question-driven')
+  $: activeFilterCount = [timeFilter, spreadTypeFilter, rarityFilter, orientationFilter].filter(f => f !== 'all').length
 
   function refresh() {
     const raw = Storage.getDrawHistory()
@@ -422,7 +594,104 @@
       <span>{pack.name}</span>
     </button>
   {/each}
+  <button 
+    class="pack-chip filter-toggle {showFilters ? 'active' : ''} {hasActiveFilters() ? 'has-filters' : ''}"
+    style="--pack-color: #69f0ae"
+    on:click={() => showFilters = !showFilters}
+  >
+    <span class="chip-icon">🔍</span>
+    <span>高级筛选</span>
+    {#if activeFilterCount > 0}
+      <span class="filter-badge">{activeFilterCount}</span>
+    {/if}
+  </button>
 </div>
+
+{#if showFilters}
+  <div class="advanced-filters">
+    <div class="filter-section">
+      <div class="filter-label">
+        <span>🕐 时间范围</span>
+      </div>
+      <div class="filter-chips">
+        {#each TIME_OPTIONS as opt}
+          <button 
+            class="filter-chip {timeFilter === opt.id ? 'active' : ''}"
+            on:click={() => timeFilter = opt.id}
+          >
+            <span>{opt.icon}</span>
+            <span>{opt.label}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">
+        <span>🎴 牌阵类型</span>
+      </div>
+      <div class="filter-chips">
+        {#each SPREAD_TYPE_OPTIONS as opt}
+          <button 
+            class="filter-chip {spreadTypeFilter === opt.id ? 'active' : ''}"
+            style="--filter-color: #e040fb"
+            on:click={() => spreadTypeFilter = opt.id}
+          >
+            <span>{opt.icon}</span>
+            <span>{opt.label}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">
+        <span>💎 卡牌稀有度</span>
+      </div>
+      <div class="filter-chips">
+        {#each RARITY_OPTIONS as opt}
+          <button 
+            class="filter-chip {rarityFilter === opt.id ? 'active' : ''}"
+            style="--filter-color: {opt.color || '#00e5ff'}"
+            on:click={() => rarityFilter = opt.id}
+          >
+            <span>{opt.icon}</span>
+            <span>{opt.label}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">
+        <span>🔃 正逆位置</span>
+      </div>
+      <div class="filter-chips">
+        {#each ORIENTATION_OPTIONS as opt}
+          <button 
+            class="filter-chip {orientationFilter === opt.id ? 'active' : ''}"
+            style="--filter-color: #ffab40"
+            on:click={() => orientationFilter = opt.id}
+          >
+            <span>{opt.icon}</span>
+            <span>{opt.label}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    {#if hasActiveFilters()}
+      <div class="filter-actions">
+        <button class="btn filter-reset-btn" on:click={resetFilters}>
+          🔄 重置筛选
+        </button>
+        <div class="filter-summary">
+          已筛选 <span class="filter-count">{activeFilterCount}</span> 个条件
+        </div>
+      </div>
+    {/if}
+  </div>
+{/if}
 
 <div class="tabs">
   <div class="tab {activeTab === 'divination' ? 'active' : ''}" on:click={() => (activeTab = 'divination')}>
@@ -444,11 +713,22 @@
 
 {#if activeTab === 'divination'}
   {#if filteredHistory.length === 0}
-    <div class="empty-state">
-      <div class="empty-state-icon">📜</div>
-      <div class="empty-state-text">暂无占卜记录<br/>快去抽一张卡吧
+    {#if hasActiveFilters() && history.length > 0}
+      <div class="empty-state">
+        <div class="empty-state-icon">�</div>
+        <div class="empty-state-text">没有符合筛选条件的记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
+            🔄 重置筛选条件
+          </button>
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-state-icon">�</div>
+        <div class="empty-state-text">暂无占卜记录<br/>快去抽一张卡吧
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="history-list">
       {#each filteredHistory as record}
@@ -523,14 +803,25 @@
   {/if}
 {:else if activeTab === 'question-driven'}
   {#if filteredQdHistory.length === 0}
-    <div class="empty-state">
-      <div class="empty-state-icon">💬</div>
-      <div class="empty-state-text">暂无问题占卜记录<br/>
-        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToQuestionDriven}>
-          💬 去进行问题驱动占卜
-        </button>
+    {#if hasActiveFilters() && qdHistory.length > 0}
+      <div class="empty-state">
+        <div class="empty-state-icon">�</div>
+        <div class="empty-state-text">没有符合筛选条件的记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
+            🔄 重置筛选条件
+          </button>
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-state-icon">�</div>
+        <div class="empty-state-text">暂无问题占卜记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToQuestionDriven}>
+            💬 去进行问题驱动占卜
+          </button>
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="history-list">
       {#each filteredQdHistory as record}
@@ -601,14 +892,25 @@
   {/if}
 {:else if activeTab === 'spread'}
   {#if filteredSpreadHistory.length === 0}
-    <div class="empty-state">
-      <div class="empty-state-icon">✚</div>
-      <div class="empty-state-text">暂无牌阵占卜记录<br/>
-        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToSpreads}>
-          ✚ 去进行牌阵占卜
-        </button>
+    {#if hasActiveFilters() && spreadHistory.length > 0}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">没有符合筛选条件的记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
+            🔄 重置筛选条件
+          </button>
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-state-icon">✚</div>
+        <div class="empty-state-text">暂无牌阵占卜记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToSpreads}>
+            ✚ 去进行牌阵占卜
+          </button>
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="history-list">
       {#each filteredSpreadHistory as record}
@@ -658,14 +960,25 @@
   {/if}
 {:else if activeTab === 'theme'}
   {#if filteredThemeHistory.length === 0}
-    <div class="empty-state">
-      <div class="empty-state-icon">🔮</div>
-      <div class="empty-state-text">暂无主题占卜记录<br/>
-        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToDivination}>
-          🔮 去进行主题占卜
-        </button>
+    {#if hasActiveFilters() && themeHistory.length > 0}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">没有符合筛选条件的记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
+            🔄 重置筛选条件
+          </button>
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔮</div>
+        <div class="empty-state-text">暂无主题占卜记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToDivination}>
+            🔮 去进行主题占卜
+          </button>
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="history-list">
       {#each filteredThemeHistory as record}
@@ -715,14 +1028,25 @@
   {/if}
 {:else}
   {#if filteredDailyHistory.length === 0}
-    <div class="empty-state">
-      <div class="empty-state-icon">🎐</div>
-      <div class="empty-state-text">暂无每日签记录<br/>
-        <button class="btn btn-yellow" style="margin-top: 16px; font-size: 12px;" on:click={goToDaily}>
-          🎴 去抽今日签
-        </button>
+    {#if hasActiveFilters() && dailyHistory.length > 0}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">没有符合筛选条件的记录<br/>
+          <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
+            🔄 重置筛选条件
+          </button>
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-state-icon">🎐</div>
+        <div class="empty-state-text">暂无每日签记录<br/>
+          <button class="btn btn-yellow" style="margin-top: 16px; font-size: 12px;" on:click={goToDaily}>
+            🎴 去抽今日签
+          </button>
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="history-list">
       {#each filteredDailyHistory as record}
@@ -984,5 +1308,164 @@
     background: rgba(255, 71, 87, 0.15);
     border: 1px solid rgba(255, 71, 87, 0.35);
     color: var(--accent-red);
+  }
+
+  .filter-toggle {
+    margin-left: auto;
+    position: relative;
+  }
+
+  .filter-toggle.has-filters {
+    animation: filterPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes filterPulse {
+    0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, #69f0ae 25%, transparent); }
+    50% { box-shadow: 0 0 20px color-mix(in srgb, #69f0ae 40%, transparent); }
+  }
+
+  .filter-badge {
+    background: var(--accent-red);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 2px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .advanced-filters {
+    background: linear-gradient(135deg, rgba(105, 240, 174, 0.05), var(--bg-card));
+    border: 1px solid rgba(105, 240, 174, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .filter-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--filter-color, var(--accent-cyan));
+    color: var(--filter-color, var(--accent-cyan));
+    transform: translateY(-1px);
+  }
+
+  .filter-chip.active {
+    background: color-mix(in srgb, var(--filter-color, var(--accent-cyan)) 15%, transparent);
+    border-color: var(--filter-color, var(--accent-cyan));
+    color: var(--filter-color, var(--accent-cyan));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--filter-color, var(--accent-cyan)) 25%, transparent);
+  }
+
+  .filter-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-glow);
+    margin-top: 4px;
+  }
+
+  .filter-reset-btn {
+    background: rgba(255, 82, 82, 0.1);
+    border: 1px solid rgba(255, 82, 82, 0.3);
+    color: var(--accent-red);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .filter-reset-btn:hover {
+    background: rgba(255, 82, 82, 0.2);
+    border-color: var(--accent-red);
+  }
+
+  .filter-summary {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+
+  .filter-count {
+    color: #69f0ae;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .empty-filter-state {
+    text-align: center;
+    padding: 30px 16px;
+    color: var(--text-secondary);
+  }
+
+  .empty-filter-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+
+  .empty-filter-text {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .empty-filter-text button {
+    margin-top: 12px;
   }
 </style>
