@@ -8,15 +8,9 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
   MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
-  DECKS: 'cyber_divination_decks',
-  THEME_ALBUMS: 'cyber_divination_theme_albums',
-  SHARE_HISTORY: 'cyber_divination_share_history',
-  ONBOARDING: 'cyber_divination_onboarding',
-  STORY_PROGRESS: 'cyber_divination_story_progress',
-  STORY_HISTORY: 'cyber_divination_story_history',
-  TEMP_EFFECTS: 'cyber_divination_temp_effects',
-  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
-  WISH_LIST: 'cyber_divination_wish_list'
+  SEASON_DATA: 'cyber_divination_season_data',
+  SEASON_TASKS: 'cyber_divination_season_tasks',
+  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events'
 }
 
 function safeGet(key, defaultValue) {
@@ -170,10 +164,7 @@ export const Storage = {
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
-      settings: this.getSettings(),
-      decks: this.getDecks(),
-      themeAlbums: this.getThemeAlbums(),
-      wishList: this.getWishList()
+      settings: this.getSettings()
     }
   },
 
@@ -188,9 +179,6 @@ export const Storage = {
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
-      if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
-      if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
-      if (data.wishList) safeSet(STORAGE_KEYS.WISH_LIST, data.wishList)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -314,330 +302,108 @@ export const Storage = {
     safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
   },
 
-  getDecks() {
-    return safeGet(STORAGE_KEYS.DECKS, [])
-  },
-
-  saveDeck(deck) {
-    const decks = this.getDecks()
-    const existingIndex = decks.findIndex(d => d.id === deck.id)
-    if (existingIndex >= 0) {
-      decks[existingIndex] = { ...deck, updatedAt: Date.now() }
-    } else {
-      decks.unshift({
-        ...deck,
-        id: deck.id || `deck_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      })
+  getSeasonData(seasonId) {
+    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
+    return allSeasonData[seasonId] || {
+      seasonId,
+      totalPoints: 0,
+      unlockedPhases: ['phase_1'],
+      claimedRewards: [],
+      joinDate: null,
+      lastActiveDate: null
     }
-    safeSet(STORAGE_KEYS.DECKS, decks)
-    return decks
   },
 
-  deleteDeck(deckId) {
-    const decks = this.getDecks()
-    const filtered = decks.filter(d => d.id !== deckId)
-    safeSet(STORAGE_KEYS.DECKS, filtered)
-    return filtered
-  },
-
-  getThemeAlbums() {
-    return safeGet(STORAGE_KEYS.THEME_ALBUMS, [])
-  },
-
-  saveThemeAlbum(album) {
-    const albums = this.getThemeAlbums()
-    const existingIndex = albums.findIndex(a => a.id === album.id)
-    if (existingIndex >= 0) {
-      albums[existingIndex] = { ...album, updatedAt: Date.now() }
-    } else {
-      albums.unshift({
-        ...album,
-        id: album.id || `album_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      })
+  updateSeasonData(seasonId, updates) {
+    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
+    const currentData = allSeasonData[seasonId] || {
+      seasonId,
+      totalPoints: 0,
+      unlockedPhases: ['phase_1'],
+      claimedRewards: [],
+      joinDate: null,
+      lastActiveDate: null
     }
-    safeSet(STORAGE_KEYS.THEME_ALBUMS, albums)
-    return albums
+    
+    if (!currentData.joinDate) {
+      currentData.joinDate = Date.now()
+    }
+    currentData.lastActiveDate = Date.now()
+    
+    allSeasonData[seasonId] = { ...currentData, ...updates }
+    safeSet(STORAGE_KEYS.SEASON_DATA, allSeasonData)
+    return allSeasonData[seasonId]
   },
 
-  deleteThemeAlbum(albumId) {
-    const albums = this.getThemeAlbums()
-    const filtered = albums.filter(a => a.id !== albumId)
-    safeSet(STORAGE_KEYS.THEME_ALBUMS, filtered)
-    return filtered
+  addSeasonPoints(seasonId, points) {
+    const seasonData = this.getSeasonData(seasonId)
+    const newPoints = (seasonData.totalPoints || 0) + points
+    return this.updateSeasonData(seasonId, { totalPoints: newPoints })
+  },
+
+  unlockPhase(seasonId, phaseId) {
+    const seasonData = this.getSeasonData(seasonId)
+    const unlockedPhases = [...new Set([...(seasonData.unlockedPhases || []), phaseId])]
+    return this.updateSeasonData(seasonId, { unlockedPhases })
+  },
+
+  claimPhaseReward(seasonId, rewardId) {
+    const seasonData = this.getSeasonData(seasonId)
+    const claimedRewards = [...new Set([...(seasonData.claimedRewards || []), rewardId])]
+    return this.updateSeasonData(seasonId, { claimedRewards })
+  },
+
+  getSeasonTasks(seasonId) {
+    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
+    return allTasks[seasonId] || {}
+  },
+
+  updateSeasonTaskProgress(seasonId, taskId, progress) {
+    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
+    const seasonTasks = allTasks[seasonId] || {}
+    const currentProgress = seasonTasks[taskId] || { completed: false, current: 0, claimed: false, completedAt: null }
+    
+    seasonTasks[taskId] = { ...currentProgress, ...progress }
+    allTasks[seasonId] = seasonTasks
+    safeSet(STORAGE_KEYS.SEASON_TASKS, allTasks)
+    return seasonTasks[taskId]
+  },
+
+  completeSeasonTask(seasonId, taskId) {
+    return this.updateSeasonTaskProgress(seasonId, taskId, {
+      completed: true,
+      completedAt: Date.now()
+    })
+  },
+
+  claimSeasonTaskReward(seasonId, taskId) {
+    return this.updateSeasonTaskProgress(seasonId, taskId, {
+      claimed: true,
+      claimedAt: Date.now()
+    })
+  },
+
+  getSeasonHiddenEvents(seasonId) {
+    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
+    return allEvents[seasonId] || []
+  },
+
+  triggerSeasonHiddenEvent(seasonId, eventId) {
+    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
+    const seasonEvents = allEvents[seasonId] || []
+    
+    if (!seasonEvents.includes(eventId)) {
+      seasonEvents.push(eventId)
+      allEvents[seasonId] = seasonEvents
+      safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, allEvents)
+      return true
+    }
+    return false
   },
 
   resetAll() {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key)
     })
-  },
-
-  getShareHistory() {
-    return safeGet(STORAGE_KEYS.SHARE_HISTORY, [])
-  },
-
-  setShareHistory(history) {
-    return safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
-  },
-
-  addShareRecord(record) {
-    const history = this.getShareHistory()
-    history.unshift({
-      ...record,
-      id: `share_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      sharedAt: Date.now()
-    })
-    if (history.length > 50) {
-      history.splice(50)
-    }
-    safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
-    return history
-  },
-
-  clearShareHistory() {
-    safeSet(STORAGE_KEYS.SHARE_HISTORY, [])
-  },
-
-  getOnboarding() {
-    return safeGet(STORAGE_KEYS.ONBOARDING, {
-      completed: false,
-      currentStep: 0,
-      firstDrawDone: false,
-      worldLoreViewed: false,
-      firstDrawHiddenEvent: null,
-      startedAt: null,
-      completedAt: null
-    })
-  },
-
-  updateOnboarding(updates) {
-    const onboarding = this.getOnboarding()
-    const updated = { ...onboarding, ...updates }
-    safeSet(STORAGE_KEYS.ONBOARDING, updated)
-    return updated
-  },
-
-  completeOnboarding() {
-    return this.updateOnboarding({
-      completed: true,
-      completedAt: Date.now()
-    })
-  },
-
-  resetOnboarding() {
-    safeSet(STORAGE_KEYS.ONBOARDING, {
-      completed: false,
-      currentStep: 0,
-      firstDrawDone: false,
-      worldLoreViewed: false,
-      firstDrawHiddenEvent: null,
-      startedAt: null,
-      completedAt: null
-    })
-  },
-
-  getStoryProgress() {
-    return safeGet(STORAGE_KEYS.STORY_PROGRESS, {})
-  },
-
-  getStoryProgressById(storyId) {
-    const progress = this.getStoryProgress()
-    return progress[storyId] || null
-  },
-
-  updateStoryProgress(storyId, updates) {
-    const allProgress = this.getStoryProgress()
-    allProgress[storyId] = {
-      ...allProgress[storyId],
-      ...updates,
-      storyId,
-      lastUpdated: Date.now()
-    }
-    safeSet(STORAGE_KEYS.STORY_PROGRESS, allProgress)
-    return allProgress[storyId]
-  },
-
-  completeStory(storyId, endingType) {
-    return this.updateStoryProgress(storyId, {
-      status: 'completed',
-      endingType,
-      completedAt: Date.now()
-    })
-  },
-
-  getStoryHistory() {
-    return safeGet(STORAGE_KEYS.STORY_HISTORY, [])
-  },
-
-  addStoryHistory(record) {
-    const history = this.getStoryHistory()
-    history.unshift({
-      ...record,
-      id: `story_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: Date.now()
-    })
-    if (history.length > 100) {
-      history.splice(100)
-    }
-    safeSet(STORAGE_KEYS.STORY_HISTORY, history)
-    return history
-  },
-
-  addStoryChoice(storyId, chapterId, choiceId) {
-    const progress = this.getStoryProgressById(storyId)
-    if (!progress) return null
-
-    if (!progress.choices) {
-      progress.choices = []
-    }
-    progress.choices.push({
-      chapterId,
-      choiceId,
-      timestamp: Date.now()
-    })
-
-    const allProgress = this.getStoryProgress()
-    allProgress[storyId] = progress
-    safeSet(STORAGE_KEYS.STORY_PROGRESS, allProgress)
-    return progress
-  },
-
-  getTempEffects() {
-    return safeGet(STORAGE_KEYS.TEMP_EFFECTS, [])
-  },
-
-  addTempEffect(effect) {
-    const effects = this.getTempEffects()
-    effects.push({
-      ...effect,
-      id: `effect_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: Date.now()
-    })
-    safeSet(STORAGE_KEYS.TEMP_EFFECTS, effects)
-    return effects
-  },
-
-  decrementTempEffects() {
-    const effects = this.getTempEffects()
-    const updated = effects
-      .map(e => ({ ...e, duration: e.duration - 1 }))
-      .filter(e => e.duration > 0)
-    safeSet(STORAGE_KEYS.TEMP_EFFECTS, updated)
-    return updated
-  },
-
-  getPermanentEffects() {
-    return safeGet(STORAGE_KEYS.PERMANENT_EFFECTS, [])
-  },
-
-  addPermanentEffect(effect) {
-    const effects = this.getPermanentEffects()
-    effects.push({
-      ...effect,
-      id: `perm_effect_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: Date.now()
-    })
-    safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
-    return effects
-  },
-
-  getAllActiveEffects() {
-    return [...this.getTempEffects(), ...this.getPermanentEffects()]
-  },
-
-  getWishList() {
-    return safeGet(STORAGE_KEYS.WISH_LIST, [])
-  },
-
-  getWishById(wishId) {
-    const wishes = this.getWishList()
-    return wishes.find(w => w.id === wishId) || null
-  },
-
-  addWish(wish) {
-    const wishes = this.getWishList()
-    const newWish = {
-      ...wish,
-      id: wish.id || `wish_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      status: wish.status || 'active',
-      linkedDraws: wish.linkedDraws || [],
-      reviews: wish.reviews || []
-    }
-    wishes.unshift(newWish)
-    if (wishes.length > 100) {
-      wishes.splice(100)
-    }
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return newWish
-  },
-
-  updateWish(wishId, updates) {
-    const wishes = this.getWishList()
-    const index = wishes.findIndex(w => w.id === wishId)
-    if (index === -1) return null
-    
-    wishes[index] = {
-      ...wishes[index],
-      ...updates,
-      updatedAt: Date.now()
-    }
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wishes[index]
-  },
-
-  deleteWish(wishId) {
-    const wishes = this.getWishList()
-    const filtered = wishes.filter(w => w.id !== wishId)
-    safeSet(STORAGE_KEYS.WISH_LIST, filtered)
-    return filtered
-  },
-
-  linkDrawToWish(wishId, drawRecord) {
-    const wishes = this.getWishList()
-    const wish = wishes.find(w => w.id === wishId)
-    if (!wish) return null
-    
-    if (!wish.linkedDraws) {
-      wish.linkedDraws = []
-    }
-    
-    wish.linkedDraws.push({
-      ...drawRecord,
-      linkedAt: Date.now()
-    })
-    wish.updatedAt = Date.now()
-    
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wish
-  },
-
-  addReviewToWish(wishId, review) {
-    const wishes = this.getWishList()
-    const wish = wishes.find(w => w.id === wishId)
-    if (!wish) return null
-    
-    if (!wish.reviews) {
-      wish.reviews = []
-    }
-    
-    wish.reviews.push({
-      ...review,
-      id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: Date.now()
-    })
-    wish.updatedAt = Date.now()
-    
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wish
-  },
-
-  clearWishList() {
-    safeSet(STORAGE_KEYS.WISH_LIST, [])
   }
 }

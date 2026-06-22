@@ -1,6 +1,8 @@
 import { CARDS } from '../data/cards.js'
 import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
 import { Storage } from './storage.js'
+import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
+import { checkSeasonTasksAfterAction } from './seasonSystem.js'
 
 export function getAllCards() {
   return CARDS
@@ -93,7 +95,9 @@ export function saveDrawResult(drawResult, spreadType = 'single') {
   }
   
   checkHiddenEvents(drawResult, spreadType)
-  
+  checkAchievementsAfterAction('draw')
+  checkSeasonTasksAfterAction('draw')
+
   return records
 }
 
@@ -158,18 +162,24 @@ export function onHiddenEvent(callback) {
 function triggerHiddenEvent(card) {
   const event = card.hiddenEvent
   if (!event) return
-  
-  const isNew = Storage.unlockAchievement(event.reward.value)
+
+  const achievementId = event.reward?.value
+  if (!achievementId) return
+
+  const isNew = triggerHiddenAchievement(achievementId)
   if (!isNew) return
-  
+
+  const eventData = {
+    ...event,
+    achievementId,
+    cardId: card.id,
+    cardName: card.name,
+    unlockedAt: Date.now()
+  }
+
   eventListeners.forEach(cb => {
     try {
-      cb({
-        ...event,
-        cardId: card.id,
-        cardName: card.name,
-        unlockedAt: Date.now()
-      })
+      cb(eventData)
     } catch (e) {
       console.error('Hidden event callback error:', e)
     }
@@ -251,7 +261,10 @@ export function saveDailyFortuneResult(result) {
   const { card, isReversed, reading } = result
   Storage.addToCollection(card.id, isReversed)
   Storage.updateStats(card.rarity, isReversed)
-  return Storage.saveDailyFortune(card.id, isReversed, reading)
+  const saved = Storage.saveDailyFortune(card.id, isReversed, reading)
+  checkAchievementsAfterAction('daily')
+  checkSeasonTasksAfterAction('daily')
+  return saved
 }
 
 export function drawThemeCards(theme, spreadTypeId) {
@@ -306,6 +319,8 @@ export function saveThemeDivinationResult(theme, spreadTypeId, results, question
   }
 
   checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
+  checkAchievementsAfterAction('theme')
+  checkSeasonTasksAfterAction('draw')
 
   return Storage.addThemeDivinationRecord(record)
 }
@@ -336,11 +351,12 @@ export function drawMultiSpread(spreadId) {
     } while (drawnIds.has(card.card.id) && attempts < 20)
 
     drawnIds.add(card.card.id)
-    const position = spreadConfig.positions[i]
+    const posConfig = spreadConfig.positions[i]
     results.push({
       ...card,
-      position: position?.name || '',
-      positionId: position?.id || ''
+      position: posConfig.name,
+      positionId: posConfig.id,
+      positionDesc: posConfig.desc
     })
   }
 
@@ -356,11 +372,12 @@ export function saveMultiSpreadResult(spreadId, results, question = '') {
   const record = {
     spreadId,
     question,
-    cards: results.map(({ card, isReversed, position, positionId }) => ({
+    cards: results.map(({ card, isReversed, position, positionId, positionDesc }) => ({
       cardId: card.id,
       isReversed,
       position,
       positionId,
+      positionDesc,
       title: isReversed ? card.reversed.title : card.upright.title,
       meaning: isReversed ? card.reversed.meaning : card.upright.meaning,
       advice: isReversed ? card.reversed.advice : card.upright.advice,
@@ -368,7 +385,9 @@ export function saveMultiSpreadResult(spreadId, results, question = '') {
     }))
   }
 
-  checkHiddenEvents(results, 'three')
+  checkHiddenEvents(results, results.length === 1 ? 'single' : 'three')
+  checkAchievementsAfterAction('spread')
+  checkSeasonTasksAfterAction('draw')
 
   return Storage.addMultiSpreadRecord(record)
 }

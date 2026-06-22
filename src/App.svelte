@@ -3,6 +3,7 @@
   import { Storage } from './utils/storage.js'
   import { onHiddenEvent } from './utils/cardSystem.js'
   import { checkAllAchievements } from './utils/achievementSystem.js'
+  import { checkAllSeasonTasks, recordHiddenEvent } from './utils/seasonSystem.js'
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
@@ -13,16 +14,11 @@
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import EncyclopediaPage from './pages/EncyclopediaPage.svelte'
   import ProfilePage from './pages/ProfilePage.svelte'
-  import WishListPage from './pages/WishListPage.svelte'
-  import ReviewPage from './pages/ReviewPage.svelte'
   import SeasonPage from './pages/SeasonPage.svelte'
-  import ThemeAlbumPage from './pages/ThemeAlbumPage.svelte'
-  import DeckEditorPage from './pages/DeckEditorPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
-  import OnboardingModal from './components/OnboardingModal.svelte'
-  import WorldLoreModal from './components/WorldLoreModal.svelte'
-  import StoryModal from './components/StoryModal.svelte'
+  import SeasonNotify from './components/SeasonNotify.svelte'
+  import RelationGraphPage from './pages/RelationGraphPage.svelte'
 
   let currentPage = 'divination'
   let historyInitialTab = 'divination'
@@ -34,17 +30,14 @@
     { id: 'spreads', icon: '✚', label: '牌阵' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
-    { id: 'wishlist', icon: '✨', label: '愿望' },
-    { id: 'review', icon: '📊', label: '回顾' },
-    { id: 'season', icon: '🎭', label: '赛季' },
+    { id: 'season', icon: '🌌', label: '赛季' },
     { id: 'encyclopedia', icon: '📖', label: '百科' },
     { id: 'collection', icon: '📚', label: '收藏' },
-    { id: 'themes', icon: '🎴', label: '卡组' },
-    { id: 'decks', icon: '🃏', label: '牌组' },
     { id: 'profile', icon: '📊', label: '档案' },
     { id: 'achievements', icon: '🏆', label: '成就' },
     { id: 'history', icon: '📜', label: '历史' },
-    { id: 'archive', icon: '💾', label: '存档' }
+    { id: 'archive', icon: '💾', label: '存档' },
+    { id: 'relation-graph', icon: '🕸️', label: '关系谱' }
   ]
 
   let removeListener
@@ -52,10 +45,14 @@
 
   onMount(() => {
     checkAllAchievements()
+    checkAllSeasonTasks()
     removeListener = onHiddenEvent((event) => {
       hiddenEvent = event
       glitchClass = 'screen-glitch'
       setTimeout(() => { glitchClass = '' }, 300)
+      if (event?.achievementId) {
+        recordHiddenEvent(event.achievementId)
+      }
     })
     removeNavListener = (e) => {
       const detail = e.detail
@@ -95,20 +92,12 @@
       <DailyFortunePage />
     {:else if currentPage === 'draw'}
       <DrawPage />
-    {:else if currentPage === 'wishlist'}
-      <WishListPage />
-    {:else if currentPage === 'review'}
-      <ReviewPage />
     {:else if currentPage === 'season'}
       <SeasonPage />
     {:else if currentPage === 'encyclopedia'}
       <EncyclopediaPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
-    {:else if currentPage === 'themes'}
-      <ThemeAlbumPage />
-    {:else if currentPage === 'decks'}
-      <DeckEditorPage />
     {:else if currentPage === 'achievements'}
       <AchievementsPage />
     {:else if currentPage === 'history'}
@@ -117,6 +106,8 @@
       <ArchivePage />
     {:else if currentPage === 'profile'}
       <ProfilePage />
+    {:else if currentPage === 'relation-graph'}
+      <RelationGraphPage />
     {/if}
   </div>
 
@@ -138,9 +129,7 @@
 {/if}
 
 <AchievementNotify />
-<OnboardingModal />
-<WorldLoreModal />
-<StoryModal />
+<SeasonNotify />
 
 <style>
   #app-container {
