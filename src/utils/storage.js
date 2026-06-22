@@ -165,7 +165,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 6,
+      version: 7,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),

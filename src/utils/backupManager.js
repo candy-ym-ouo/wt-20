@@ -1,6 +1,6 @@
 import { Storage } from './storage.js'
 
-const BACKUP_VERSION = 6
+const BACKUP_VERSION = 7
 const MAX_AUTO_BACKUPS = 10
 const CHECKSUM_SEED = 0xDEAD
 
@@ -9,6 +9,7 @@ const BACKUP_FIELDS = [
   'dailyFortuneHistory',
   'themeDivinationHistory',
   'multiSpreadHistory',
+  'questionDrivenHistory',
   'collection',
   'achievements',
   'stats',
@@ -134,6 +135,10 @@ function migrateBackup(data) {
   if (version < 6) {
     migrated.weeklyReports = migrated.weeklyReports || []
     migrated.hiddenEventsLog = migrated.hiddenEventsLog || []
+  }
+
+  if (version < 7) {
+    migrated.questionDrivenHistory = migrated.questionDrivenHistory || []
   }
 
   migrated._meta = {
@@ -526,6 +531,7 @@ export const BackupManager = {
       dailyFortuneCount: data.dailyFortuneHistory?.length || 0,
       themeDivinationCount: data.themeDivinationHistory?.length || 0,
       multiSpreadCount: data.multiSpreadHistory?.length || 0,
+      questionDrivenCount: data.questionDrivenHistory?.length || 0,
       weeklyReportCount: data.weeklyReports?.length || 0,
       hiddenEventCount: data.hiddenEventsLog?.length || 0,
       visitorCount: data.visitorCardRecords?.length || 0,

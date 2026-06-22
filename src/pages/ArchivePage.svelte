@@ -17,6 +17,7 @@
   let drawHistory = []
   let themeHistory = []
   let dailyHistory = []
+  let qdHistory = []
   let settings = {}
 
   let showExportSuccess = false
@@ -51,6 +52,7 @@
     drawHistory = Storage.getDrawHistory()
     themeHistory = Storage.getThemeDivinationHistory()
     dailyHistory = Storage.getDailyFortuneHistory()
+    qdHistory = Storage.getQuestionDrivenHistory()
     settings = Storage.getSettings()
   }
 
@@ -407,6 +409,10 @@
         <div class="stat-value" style="color: #ffd54f;">{dailyHistory.length}</div>
         <div class="stat-label">每日签记录</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: #00e5ff;">{qdHistory.length}</div>
+        <div class="stat-label">问题占卜记录</div>
+      </div>
     </div>
 
     <div class="section-title">详细数据</div>
@@ -703,7 +709,8 @@
           <li>🎴 {stats.totalDraws || 0} 条抽卡记录</li>
           <li>🔮 {themeHistory.length || 0} 条主题占卜记录</li>
           <li>🎐 {dailyHistory.length || 0} 条每日签记录</li>
-          <li>📚 {getCollectedCount()} 张收藏卡牌数据</li>
+          <li>� {qdHistory.length || 0} 条问题占卜记录</li>
+          <li>� {getCollectedCount()} 张收藏卡牌数据</li>
           <li>🏆 {getAchievementCount()} 个成就</li>
           <li>⚙️ 所有个性化设置</li>
         </ul>
@@ -770,6 +777,7 @@
               <li>🏆 成就 {getAchievementCount()}</li>
               <li>🔮 主题占卜 {themeHistory.length}</li>
               <li>🎐 每日签 {dailyHistory.length}</li>
+              <li>💬 问题占卜 {qdHistory.length}</li>
               <li>📊 周报 {Storage.getWeeklyReports().length}</li>
               <li>✨ 隐藏事件 {Storage.getHiddenEventsLog().length}</li>
             </ul>
@@ -782,7 +790,8 @@
               <li>🏆 成就 {verifySummary.achievementCount}</li>
               <li>🔮 主题占卜 {verifySummary.themeDivinationCount}</li>
               <li>🎐 每日签 {verifySummary.dailyFortuneCount}</li>
-              <li>📊 周报 {verifySummary.weeklyReportCount || 0}</li>
+              <li>� 问题占卜 {verifySummary.questionDrivenCount || 0}</li>
+              <li>�📊 周报 {verifySummary.weeklyReportCount || 0}</li>
               <li>✨ 隐藏事件 {verifySummary.hiddenEventCount || 0}</li>
             </ul>
           </div>
