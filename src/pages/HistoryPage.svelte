@@ -46,17 +46,18 @@
   ]
 
   const SPREAD_TYPE_OPTIONS = [
-    { id: 'all', label: '全部类型', icon: '🎴' },
-    { id: 'single', label: '单张抽卡', icon: '1️⃣' },
-    { id: 'three', label: '三牌阵', icon: '3️⃣' },
-    { id: 'cross', label: '十字阵', icon: '✚' },
-    { id: 'relationship', label: '关系阵', icon: '💕' },
-    { id: 'decision', label: '抉择阵', icon: '⚖️' },
-    { id: 'celestial', label: '天界阵', icon: '☁️' },
-    { id: 'abyss', label: '深渊阵', icon: '🌑' },
-    { id: 'temporal', label: '时间阵', icon: '⏰' },
-    { id: 'theme', label: '主题占卜', icon: '🔮' },
-    { id: 'daily', label: '每日签', icon: '🎐' }
+    { id: 'all', label: '全部类型', icon: '🎴', category: 'all' },
+    { id: 'single', label: '单张抽卡', icon: '1️⃣', category: 'basic' },
+    { id: 'three', label: '三牌阵', icon: '3️⃣', category: 'basic' },
+    { id: 'cross', label: '十字阵', icon: '✚', category: 'multi' },
+    { id: 'relationship', label: '关系阵', icon: '💕', category: 'multi' },
+    { id: 'decision', label: '抉择阵', icon: '⚖️', category: 'multi' },
+    { id: 'celestial', label: '天界阵', icon: '☁️', category: 'multi' },
+    { id: 'abyss', label: '深渊阵', icon: '🌑', category: 'multi' },
+    { id: 'temporal', label: '时间阵', icon: '⏰', category: 'multi' },
+    { id: 'theme', label: '主题占卜', icon: '🔮', category: 'special' },
+    { id: 'question-driven', label: '问题占卜', icon: '💬', category: 'special' },
+    { id: 'daily', label: '每日签', icon: '🎐', category: 'special' }
   ]
 
   const RARITY_OPTIONS = [
@@ -120,28 +121,61 @@
     })
   }
 
-  function getRecordSpreadType(record, tabType) {
-    if (tabType === 'daily') return 'daily'
-    if (tabType === 'theme') return 'theme'
-    if (tabType === 'spread') return record.spreadId || 'unknown'
-    if (tabType === 'question-driven') {
-      if (record.spreadMeta?.type === 'multi-spread' && record.spreadMeta?.spreadId) {
-        return record.spreadMeta.spreadId
-      }
-      if (record._cards && record._cards.length === 1) return 'single'
-      if (record._cards && record._cards.length === 3) return 'three'
-      return 'qd'
+  function getRecordSpreadTypes(record, tabType) {
+    const types = new Set()
+
+    if (tabType === 'daily') {
+      types.add('daily')
+      return Array.from(types)
     }
-    return record.spreadType || 'unknown'
+
+    if (tabType === 'theme') {
+      types.add('theme')
+      if (record.spreadTypeId) {
+        types.add(record.spreadTypeId)
+        if (record.spreadTypeId === 'single') types.add('single')
+        if (record.spreadTypeId.startsWith('three-')) types.add('three')
+      }
+      return Array.from(types)
+    }
+
+    if (tabType === 'spread') {
+      if (record.spreadId) {
+        types.add(record.spreadId)
+      }
+      return Array.from(types)
+    }
+
+    if (tabType === 'question-driven') {
+      types.add('question-driven')
+      if (record.spreadMeta) {
+        if (record.spreadMeta.type === 'theme') {
+          types.add('theme')
+          if (record.spreadMeta.spreadTypeId) {
+            types.add(record.spreadMeta.spreadTypeId)
+            if (record.spreadMeta.spreadTypeId === 'single') types.add('single')
+            if (record.spreadMeta.spreadTypeId.startsWith('three-')) types.add('three')
+          }
+        }
+        if (record.spreadMeta.type === 'multi-spread' && record.spreadMeta.spreadId) {
+          types.add(record.spreadMeta.spreadId)
+        }
+      }
+      return Array.from(types)
+    }
+
+    if (record.spreadType) {
+      types.add(record.spreadType)
+    }
+
+    return Array.from(types)
   }
 
   function filterBySpreadType(records, filterId, tabType) {
     if (filterId === 'all') return records
     return records.filter(r => {
-      const type = getRecordSpreadType(r, tabType)
-      if (filterId === 'theme') return tabType === 'theme'
-      if (filterId === 'daily') return tabType === 'daily'
-      return type === filterId
+      const types = getRecordSpreadTypes(r, tabType)
+      return types.includes(filterId)
     })
   }
 
@@ -715,7 +749,7 @@
   {#if filteredHistory.length === 0}
     {#if hasActiveFilters() && history.length > 0}
       <div class="empty-state">
-        <div class="empty-state-icon">�</div>
+        <div class="empty-state-icon">🔍</div>
         <div class="empty-state-text">没有符合筛选条件的记录<br/>
           <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
             🔄 重置筛选条件
@@ -724,7 +758,7 @@
       </div>
     {:else}
       <div class="empty-state">
-        <div class="empty-state-icon">�</div>
+        <div class="empty-state-icon">📜</div>
         <div class="empty-state-text">暂无占卜记录<br/>快去抽一张卡吧
         </div>
       </div>
@@ -805,7 +839,7 @@
   {#if filteredQdHistory.length === 0}
     {#if hasActiveFilters() && qdHistory.length > 0}
       <div class="empty-state">
-        <div class="empty-state-icon">�</div>
+        <div class="empty-state-icon">🔍</div>
         <div class="empty-state-text">没有符合筛选条件的记录<br/>
           <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={resetFilters}>
             🔄 重置筛选条件
@@ -814,7 +848,7 @@
       </div>
     {:else}
       <div class="empty-state">
-        <div class="empty-state-icon">�</div>
+        <div class="empty-state-icon">💬</div>
         <div class="empty-state-text">暂无问题占卜记录<br/>
           <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToQuestionDriven}>
             💬 去进行问题驱动占卜
