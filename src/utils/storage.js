@@ -501,6 +501,153 @@ export const Storage = {
     safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, [])
   },
 
+  updateRecordNote(recordType, recordId, note) {
+    const typeMap = {
+      'divination': 'getDrawHistory',
+      'daily': 'getDailyFortuneHistory',
+      'theme': 'getThemeDivinationHistory',
+      'spread': 'getMultiSpreadHistory',
+      'question-driven': 'getQuestionDrivenHistory'
+    }
+    const storageMap = {
+      'divination': 'DRAW_HISTORY',
+      'daily': 'DAILY_FORTUNE_HISTORY',
+      'theme': 'THEME_DIVINATION_HISTORY',
+      'spread': 'MULTI_SPREAD_HISTORY',
+      'question-driven': 'QUESTION_DRIVEN_HISTORY'
+    }
+    const getMethod = typeMap[recordType]
+    const storageKey = STORAGE_KEYS[storageMap[recordType]]
+    if (!getMethod || !storageKey) return false
+
+    const history = this[getMethod]()
+    const idx = history.findIndex(r => r.id === recordId)
+    if (idx >= 0) {
+      history[idx] = {
+        ...history[idx],
+        userNote: note,
+        noteUpdatedAt: Date.now()
+      }
+      safeSet(storageKey, history)
+      return true
+    }
+    return false
+  },
+
+  getRecordNote(recordType, recordId) {
+    const typeMap = {
+      'divination': 'getDrawHistory',
+      'daily': 'getDailyFortuneHistory',
+      'theme': 'getQuestionDrivenHistory',
+      'spread': 'getMultiSpreadHistory',
+      'question-driven': 'getQuestionDrivenHistory'
+    }
+    const getMethod = typeMap[recordType]
+    if (!getMethod) return null
+
+    const history = this[getMethod]()
+    const record = history.find(r => r.id === recordId)
+    return record?.userNote || null
+  },
+
+  findRelatedRecords(currentRecord, recordType, limit = 5) {
+    const allRecords = []
+    const cardIds = new Set()
+    const questionKeywords = new Set()
+
+    if (currentRecord?.cards) {
+      currentRecord.cards.forEach(c => cardIds.add(c.cardId))
+    } else if (currentRecord?.cardId) {
+      cardIds.add(currentRecord.cardId)
+    }
+
+    if (currentRecord?.questionContext?.question) {
+      const q = currentRecord.questionContext.question.toLowerCase()
+      q.split(/[\s，。！？、,.!?]+/).filter(w => w.length > 1).forEach(w => questionKeywords.add(w))
+    } else if (currentRecord?.question) {
+      const q = currentRecord.question.toLowerCase()
+      q.split(/[\s，。！？、,.!?]+/).filter(w => w.length > 1).forEach(w => questionKeywords.add(w))
+    }
+
+    if (currentRecord?.spreadMeta?.name) {
+      const n = currentRecord.spreadMeta.name.toLowerCase()
+      n.split(/[\s，。！？、,.!?]+/).filter(w => w.length > 1).forEach(w => questionKeywords.add(w))
+    }
+
+    const types = ['divination', 'daily', 'theme', 'spread', 'question-driven']
+    types.forEach(t => {
+      const typeMap = {
+        'divination': 'getDrawHistory',
+        'daily': 'getDailyFortuneHistory',
+        'theme': 'getThemeDivinationHistory',
+        'spread': 'getMultiSpreadHistory',
+        'question-driven': 'getQuestionDrivenHistory'
+      }
+      const getMethod = typeMap[t]
+      if (!getMethod) return
+      const records = this[getMethod]()
+      records.forEach(r => {
+        if (r.id === currentRecord?.id) return
+        allRecords.push({ ...r, _type: t })
+      })
+    })
+
+    const scored = allRecords.map(r => {
+      let score = 0
+      let matchCards = []
+      let matchReasons = []
+
+      const rCardIds = new Set()
+      if (r.cards) {
+        r.cards.forEach(c => rCardIds.add(c.cardId))
+      } else if (r.cardId) {
+        rCardIds.add(r.cardId)
+      }
+
+      cardIds.forEach(cid => {
+        if (rCardIds.has(cid)) {
+          score += 3
+          matchCards.push(cid)
+        }
+      })
+
+      if (matchCards.length > 0) {
+        matchReasons.push(`重复卡牌 ×${matchCards.length}`)
+      }
+
+      if (questionKeywords.size > 0) {
+        let rText = ''
+        if (r.questionContext?.question) rText += ' ' + r.questionContext.question
+        if (r.questionContext?.context) rText += ' ' + r.questionContext.context
+        if (r.question) rText += ' ' + r.question
+        if (r.spreadMeta?.name) rText += ' ' + r.spreadMeta.name
+        rText = rText.toLowerCase()
+
+        let kwMatches = 0
+        questionKeywords.forEach(kw => {
+          if (rText.includes(kw)) {
+            score += 2
+            kwMatches++
+          }
+        })
+        if (kwMatches > 0) {
+          matchReasons.push(`关键词匹配 ×${kwMatches}`)
+        }
+      }
+
+      if (r._type === recordType) {
+        score += 1
+      }
+
+      return { ...r, _score: score, _matchCards: matchCards, _matchReasons: matchReasons }
+    })
+
+    return scored
+      .filter(r => r._score > 0)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, limit)
+  },
+
   getDecks() {
     return safeGet(STORAGE_KEYS.DECKS, [])
   },

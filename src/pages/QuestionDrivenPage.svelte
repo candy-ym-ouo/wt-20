@@ -34,6 +34,7 @@
   let stats = Storage.getStats()
   let ownedItems = {}
   let currentRecordId = null
+  let currentSourceRecord = null
   let currentPackId = getCurrentPackId()
   let removePackListener
 
@@ -115,6 +116,7 @@
       ''
     )
     currentRecordId = savedRecord[0]?.id
+    currentSourceRecord = savedRecord[0] || null
     refreshStats()
 
     setTimeout(() => {
@@ -133,6 +135,7 @@
     context = ''
     selectedUrgency = URGENCY_LEVELS[1]
     currentRecordId = null
+    currentSourceRecord = null
     step = 'question'
   }
 
@@ -426,6 +429,7 @@
     }}
     recordId={currentRecordId}
     recordType="question-driven"
+    sourceRecord={currentSourceRecord}
     onClose={handleCloseResult}
     onDrawAgain={handleDrawAgain}
   />

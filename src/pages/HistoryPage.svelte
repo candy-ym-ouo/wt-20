@@ -37,6 +37,10 @@
   let orientationFilter = 'all'
   let showFilters = false
 
+  let currentSourceRecord = null
+  let currentExistingNote = null
+  let currentRecordType = 'divination'
+
   const TIME_OPTIONS = [
     { id: 'all', label: '全部时间', icon: '🕰️' },
     { id: 'today', label: '今天', icon: '☀️' },
@@ -370,6 +374,10 @@
 
   function openDivinationRecord(record) {
     selectedCustomTitle = null
+    currentRecordType = 'divination'
+    currentSourceRecord = record
+    currentExistingNote = record.userNote || null
+    currentRecordId = record.id
     if (record.spreadType === 'single') {
       const card = getCardById(record.cardId)
       if (!card) return
@@ -396,6 +404,10 @@
 
   function openDailyRecord(record) {
     selectedCustomTitle = null
+    currentRecordType = 'daily'
+    currentSourceRecord = record
+    currentExistingNote = record.userNote || null
+    currentRecordId = record.id
     const card = getCardById(record.cardId)
     if (!card) return
     selectedRecord = [{
@@ -420,6 +432,10 @@
     currentQuestionContext = null
     currentRecordId = null
     currentInterpretation = null
+    currentSourceRecord = null
+    currentExistingNote = null
+    currentRecordType = 'divination'
+    refresh()
   }
 
   function clearHistory() {
@@ -481,6 +497,11 @@
   function openThemeRecord(record) {
     const theme = record._theme || THEME_CONFIG[record.theme]
     const spreadName = theme?.spreadTypes?.find(s => s.id === record.spreadTypeId)?.name || `${record.cards.length}牌阵`
+
+    currentRecordType = 'theme'
+    currentSourceRecord = record
+    currentExistingNote = record.userNote || null
+    currentRecordId = record.id
     
     if (theme) {
       selectedCustomTitle = `◆ ${theme.icon} ${theme.name} · ${spreadName} ◆`
@@ -509,6 +530,11 @@
 
   function openSpreadRecord(record) {
     const spread = record._spread || MULTI_SPREAD_CONFIG[record.spreadId]
+
+    currentRecordType = 'spread'
+    currentSourceRecord = record
+    currentExistingNote = record.userNote || null
+    currentRecordId = record.id
     
     if (spread) {
       selectedCustomTitle = `◆ ${spread.icon} ${spread.name} ◆`
@@ -547,11 +573,62 @@
     window.dispatchEvent(event)
   }
 
+  function handleOpenRelated(relatedRec) {
+    const type = relatedRec._type
+    const id = relatedRec.id
+    const tabMap = {
+      'divination': 'divination',
+      'daily': 'daily',
+      'theme': 'theme',
+      'spread': 'spread',
+      'question-driven': 'question-driven'
+    }
+    activeTab = tabMap[type] || 'divination'
+    setTimeout(() => {
+      refresh()
+      setTimeout(() => {
+        if (type === 'divination') {
+          const rec = Storage.getDrawHistory().find(r => r.id === id)
+          if (rec) openDivinationRecord({ ...rec, _pack: getPackInfo(rec.packId) })
+        } else if (type === 'daily') {
+          const rec = Storage.getDailyFortuneHistory().find(r => r.id === id)
+          if (rec) openDailyRecord({ ...rec, _card: getCardById(rec.cardId), _pack: getPackInfo(rec.packId) })
+        } else if (type === 'theme') {
+          const rec = Storage.getThemeDivinationHistory().find(r => r.id === id)
+          if (rec) openThemeRecord({
+            ...rec,
+            _theme: THEME_CONFIG[rec.theme],
+            _cards: rec.cards.map(c => ({ ...c, _card: getCardById(c.cardId) })),
+            _pack: getPackInfo(rec.packId)
+          })
+        } else if (type === 'spread') {
+          const rec = Storage.getMultiSpreadHistory().find(r => r.id === id)
+          if (rec) openSpreadRecord({
+            ...rec,
+            _spread: MULTI_SPREAD_CONFIG[rec.spreadId],
+            _cards: rec.cards.map(c => ({ ...c, _card: getCardById(c.cardId) })),
+            _pack: getPackInfo(rec.packId)
+          })
+        } else if (type === 'question-driven') {
+          const rec = Storage.getQuestionDrivenHistory().find(r => r.id === id)
+          if (rec) openQDRecord({
+            ...rec,
+            _cards: rec.cards.map(c => ({ ...c, _card: getCardById(c.cardId) })),
+            _pack: getPackInfo(rec.packId)
+          })
+        }
+      }, 100)
+    }, 50)
+  }
+
   function openQDRecord(record) {
     const spreadMeta = record.spreadMeta || {}
     selectedCustomTitle = `◆ ${spreadMeta.icon || '🎴'} ${spreadMeta.name || '问题占卜'} ◆`
     currentRecordId = record.id
     currentInterpretation = record.userInterpretation || null
+    currentRecordType = 'question-driven'
+    currentSourceRecord = record
+    currentExistingNote = record.userNote || null
 
     if (spreadMeta.type === 'multi-spread' && spreadMeta.spreadId) {
       selectedSpreadConfig = MULTI_SPREAD_CONFIG[spreadMeta.spreadId] || null
@@ -783,6 +860,9 @@
                     {getPityBadgeText(record.pityInfo)}
                   </span>
                 {/if}
+                {#if record.userNote}
+                  <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
+                {/if}
                 {#if record._pack}
                   <span 
                     class="pack-badge" 
@@ -809,6 +889,9 @@
                       </span>
                     {/if}
                   {/each}
+                {/if}
+                {#if record.userNote}
+                  <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
                 {/if}
                 {#if record._pack}
                   <span 
@@ -886,6 +969,9 @@
               {#if record.userInterpretation}
                 <span class="badge badge-interpreted" title="已写解读笔记">📖 已解读</span>
               {/if}
+              {#if record.userNote}
+                <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
+              {/if}
               {#if record._pack}
                 <span 
                   class="pack-badge" 
@@ -960,6 +1046,9 @@
             <div class="history-card-name">{record._spread?.name || '牌阵'}占卜</div>
             <div class="history-meta">
               <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record.userNote}
+                <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
+              {/if}
               {#if record._pack}
                 <span 
                   class="pack-badge" 
@@ -1028,6 +1117,9 @@
             <div class="history-card-name">{record._theme?.name || '主题'}占卜</div>
             <div class="history-meta">
               <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record.userNote}
+                <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
+              {/if}
               {#if record._pack}
                 <span 
                   class="pack-badge" 
@@ -1103,6 +1195,9 @@
                 {#if record.consecutiveDays}
                   <span class="consecutive-badge">🔥 {record.consecutiveDays}天</span>
                 {/if}
+                {#if record.userNote}
+                  <span class="badge badge-note" title="已有备注">🗒️ 有备注</span>
+                {/if}
                 {#if record._pack}
                   <span 
                     class="pack-badge" 
@@ -1137,8 +1232,11 @@
     customTitle={selectedCustomTitle}
     questionContext={currentQuestionContext}
     recordId={currentRecordId}
-    recordType="question-driven"
+    recordType={currentRecordType}
     existingInterpretation={currentInterpretation}
+    existingNote={currentExistingNote}
+    sourceRecord={currentSourceRecord}
+    onOpenRelated={handleOpenRelated}
     onClose={closeDetail}
     onDrawAgain={closeDetail}
   />
@@ -1197,6 +1295,11 @@
   .badge-interpreted {
     background: rgba(105, 240, 174, 0.2);
     color: #69f0ae;
+    font-size: 10px;
+  }
+  .badge-note {
+    background: rgba(255, 171, 64, 0.2);
+    color: #ffab40;
     font-size: 10px;
   }
   .history-item .question-preview {
