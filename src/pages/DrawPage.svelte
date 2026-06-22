@@ -4,9 +4,10 @@
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
   import ThemePackSelector from '../components/ThemePackSelector.svelte'
-  import { drawSingleCard, drawThreeCards, saveDrawResult, drawSingleCardFromPack, drawThreeCardsFromPack, saveDrawResultWithPack } from '../utils/cardSystem.js'
+  import { drawSingleCard, drawThreeCards, saveDrawResult, drawSingleCardFromPack, drawThreeCardsFromPack, saveDrawResultWithPack, getCurrentPityInfo, calculateEffectiveProbabilities } from '../utils/cardSystem.js'
   import { Storage } from '../utils/storage.js'
   import { CARDS } from '../data/cards.js'
+  import { CARD_RARITY, RARITY_CONFIG, PITY_CONFIG } from '../data/constants.js'
   import { getCurrentPack, getCurrentPackCards, getCurrentPackId, getPackCollectionStats } from '../utils/themePackSystem.js'
   import { getPackStats } from '../data/themePacks.js'
 
@@ -21,6 +22,11 @@
   let collectionStats = null
   let showPackSelector = false
   let removePackListener
+  let pityInfo = null
+  let effectiveProbs = null
+  let showProbDetail = false
+
+  const RARITY_ORDER = [CARD_RARITY.COMMON, CARD_RARITY.RARE, CARD_RARITY.EPIC, CARD_RARITY.LEGENDARY]
 
   function refresh() {
     stats = Storage.getStats()
@@ -28,6 +34,8 @@
     const packId = getCurrentPackId()
     packStats = getPackStats(packId)
     collectionStats = getPackCollectionStats(packId)
+    pityInfo = getCurrentPityInfo(packId)
+    effectiveProbs = calculateEffectiveProbabilities(packId)
   }
 
   async function handleDraw(type) {
@@ -84,6 +92,29 @@
     isAnimating = false
   }
 
+  function getProgressPercent(count, hardPity) {
+    if (hardPity === 0) return 0
+    return Math.min(100, (count / hardPity) * 100)
+  }
+
+  function getPityStatus(rarity) {
+    const info = pityInfo?.[rarity]
+    if (!info) return null
+    const config = info.config
+    const count = info.count
+    const softStart = config.softPityStart
+    const hardPity = config.hardPity
+    
+    if (count >= hardPity) {
+      return { text: '硬保底已触发', class: 'hard-pity' }
+    }
+    if (count >= softStart) {
+      const increase = (count - softStart + 1) * config.rateIncrease
+      return { text: `软保底中 +${increase}%/抽`, class: 'soft-pity' }
+    }
+    return { text: `${softStart - count}抽后软保底`, class: 'normal' }
+  }
+
   onMount(() => {
     refresh()
     removePackListener = (e) => {
@@ -138,6 +169,67 @@
     <div class="stat-label glow-magenta">史诗</div>
   </div>
 </div>
+
+<div class="prob-section">
+  <div class="prob-header" on:click={() => showProbDetail = !showProbDetail}>
+    <span class="prob-title">🎲 当前概率</span>
+    <span class="prob-toggle">{showProbDetail ? '收起 ▲' : '展开 ▼'}</span>
+  </div>
+  
+  {#if showProbDetail && effectiveProbs}
+    <div class="prob-grid">
+      {#each RARITY_ORDER as rarity}
+        {@const rarityData = effectiveProbs[rarity]}
+        {@const config = RARITY_CONFIG[rarity]}
+        <div class="prob-item" style="--rarity-color: {config.color}">
+          <div class="prob-rarity" style="color: {config.color}">{config.label}</div>
+          <div class="prob-rate">{rarityData?.effectiveRate?.toFixed(1)}%</div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+{#if pityInfo}
+  <div class="pity-section">
+    <div class="pity-title">
+      <span>🛡️ 保底进度</span>
+      {#if pityInfo.totalPityTriggers}
+        <span class="pity-total mono">
+          共触发保底 {pityInfo.totalPityTriggers.legendary + pityInfo.totalPityTriggers.epic + pityInfo.totalPityTriggers.rare} 次
+        </span>
+      {/if}
+    </div>
+    
+    {#each [CARD_RARITY.LEGENDARY, CARD_RARITY.EPIC, CARD_RARITY.RARE] as rarity}
+      {@const info = pityInfo[rarity]}
+      {@const config = info.config}
+      {@const status = getPityStatus(rarity)}
+      {@const progress = getProgressPercent(info.count, config.hardPity)}
+      <div class="pity-item pity-{rarity}" style="--rarity-color: {RARITY_CONFIG[rarity].color}">
+        <div class="pity-info">
+          <div class="pity-label" style="color: {RARITY_CONFIG[rarity].color}">
+            {RARITY_CONFIG[rarity].label}
+          </div>
+          <div class="pity-count mono">{info.count}/{config.hardPity}</div>
+        </div>
+        <div class="pity-progress">
+          <div class="pity-progress-fill" style="width: {progress}%"></div>
+          {#if config.softPityStart > 0}
+            <div 
+              class="soft-pity-line" 
+              style="left: {(config.softPityStart / config.hardPity) * 100}%"
+              title="软保底起点">
+            </div>
+          {/if}
+        </div>
+        <div class="pity-status {status?.class || ''}">
+          {status?.text || ''}
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
 
 <div class="draw-btn-container">
   <button class="btn btn-primary btn-block" on:click={() => handleDraw('single')} disabled={isAnimating}>
@@ -239,5 +331,163 @@
   .draw-btn-container .btn {
     flex: 1;
     min-width: 140px;
+  }
+
+  .prob-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .prob-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .prob-header:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .prob-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .prob-toggle {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .prob-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 0 14px 12px;
+  }
+
+  .prob-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--rarity-color);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .prob-rarity {
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .prob-rate {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--rarity-color);
+  }
+
+  .pity-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+
+  .pity-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .pity-total {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .pity-item {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid color-mix(in srgb, var(--rarity-color) 30%, transparent);
+    border-radius: 6px;
+  }
+
+  .pity-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .pity-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .pity-label {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .pity-count {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .pity-progress {
+    position: relative;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: visible;
+    margin-bottom: 6px;
+  }
+
+  .pity-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--rarity-color), color-mix(in srgb, var(--rarity-color)) 70%, transparent);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 6px var(--rarity-color);
+  }
+
+  .soft-pity-line {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 10px;
+    background: var(--accent-yellow);
+    transform: translateX(-50%);
+    border-radius: 1px;
+  }
+
+  .pity-status {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    text-align: right;
+  }
+
+  .pity-status.normal {
+    color: var(--text-dim);
+  }
+
+  .pity-status.soft-pity {
+    color: var(--accent-yellow);
+  }
+
+  .pity-status.hard-pity {
+    color: var(--accent-red);
+    font-weight: bold;
   }
 </style>

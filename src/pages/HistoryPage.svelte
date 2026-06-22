@@ -151,6 +151,17 @@
     }
   }
 
+  function hasPity(pityInfo) {
+    return pityInfo && (pityInfo.triggered || pityInfo.pityCount || pityInfo.type)
+  }
+
+  function getPityBadgeText(pityInfo) {
+    if (!pityInfo) return ''
+    if (pityInfo.type === 'hard') return '🛡️硬保底'
+    if (pityInfo.type === 'soft') return '🛡️软保底'
+    return ''
+  }
+
   function openDivinationRecord(record) {
     selectedCustomTitle = null
     if (record.spreadType === 'single') {
@@ -159,7 +170,8 @@
       selectedRecord = [{
         card,
         isReversed: record.isReversed,
-        reading: record.isReversed ? card.reversed : card.upright
+        reading: record.isReversed ? card.reversed : card.upright,
+        pityInfo: record.pityInfo || null
       }]
     } else if (record.spreadType === 'three') {
       selectedRecord = record.cards.map(c => {
@@ -168,7 +180,8 @@
           card,
           isReversed: c.isReversed,
           position: c.position,
-          reading: c.isReversed ? card.reversed : card.upright
+          reading: c.isReversed ? card.reversed : card.upright,
+          pityInfo: c.pityInfo || null
         }
       })
     }
@@ -187,7 +200,8 @@
         meaning: record.meaning,
         advice: record.advice,
         fortune: record.fortune
-      }
+      },
+      pityInfo: record.pityInfo || null
     }]
     showDetail = true
   }
@@ -450,6 +464,11 @@
                 {#if record.isReversed}
                   <span class="reversed">逆位</span>
                 {/if}
+                {#if hasPity(record.pityInfo)}
+                  <span class="pity-history-badge pity-{record.pityInfo?.type || 'soft'}">
+                    {getPityBadgeText(record.pityInfo)}
+                  </span>
+                {/if}
                 {#if record._pack}
                   <span 
                     class="pack-badge" 
@@ -462,12 +481,21 @@
             </div>
           {:else}
             <div class="history-symbol" style="color: var(--accent-magenta)">🔮</div>
-            <div class="history-info">
+              <div class="history-info">
               <div class="history-card-name">三牌阵</div>
               <div class="history-meta">
                 {#each record._cards || [] as c}
                   <span style="margin-right: 4px;">{c._card?.symbol || '?'}</span>
                 {/each}
+                {#if (record._cards || []).some(c => hasPity(c.pityInfo))}
+                  {#each record._cards || [] as c}
+                    {#if hasPity(c.pityInfo)}
+                      <span class="pity-history-badge pity-{c.pityInfo?.type || 'soft'}">
+                        {getPityBadgeText(c.pityInfo)}
+                      </span>
+                    {/if}
+                  {/each}
+                {/if}
                 {#if record._pack}
                   <span 
                     class="pack-badge" 
@@ -703,25 +731,30 @@
             {record._card?.symbol || '🎐'}
           </div>
           <div class="history-info">
-            <div class="history-card-name">{record._card?.name || '命运签'}</div>
-            <div class="history-meta">
-              <span class="badge badge-daily">每日签</span>
-              {#if record.isReversed}
-                <span class="reversed">逆位</span>
-              {/if}
-              {#if record.consecutiveDays}
-                <span class="consecutive-badge">🔥 {record.consecutiveDays}天</span>
-              {/if}
-              {#if record._pack}
-                <span 
-                  class="pack-badge" 
-                  style="background: {record._pack.color + '22'}; color: {record._pack.color}"
-                >
-                  {record._pack.icon}
-                </span>
-              {/if}
+              <div class="history-card-name">{record._card?.name || '命运签'}</div>
+              <div class="history-meta">
+                <span class="badge badge-daily">每日签</span>
+                {#if record.isReversed}
+                  <span class="reversed">逆位</span>
+                {/if}
+                {#if hasPity(record.pityInfo)}
+                  <span class="pity-history-badge pity-{record.pityInfo?.type || 'soft'}">
+                    {getPityBadgeText(record.pityInfo)}
+                  </span>
+                {/if}
+                {#if record.consecutiveDays}
+                  <span class="consecutive-badge">🔥 {record.consecutiveDays}天</span>
+                {/if}
+                {#if record._pack}
+                  <span 
+                    class="pack-badge" 
+                    style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                  >
+                    {record._pack.icon}
+                  </span>
+                {/if}
+              </div>
             </div>
-          </div>
           <div class="history-actions">
             <button
               class="history-share-btn"
@@ -931,5 +964,25 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+  }
+
+  .pity-history-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .pity-history-badge.pity-soft {
+    background: rgba(255, 207, 64, 0.15);
+    border: 1px solid rgba(255, 207, 64, 0.35);
+    color: var(--accent-yellow);
+  }
+
+  .pity-history-badge.pity-hard {
+    background: rgba(255, 71, 87, 0.15);
+    border: 1px solid rgba(255, 71, 87, 0.35);
+    color: var(--accent-red);
   }
 </style>

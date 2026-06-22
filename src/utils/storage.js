@@ -24,7 +24,8 @@ const STORAGE_KEYS = {
   WEEKLY_REPORTS: 'cyber_divination_weekly_reports',
   HIDDEN_EVENTS_LOG: 'cyber_divination_hidden_events_log',
   MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
-  QUESTION_DRIVEN_HISTORY: 'cyber_divination_question_driven_history'
+  QUESTION_DRIVEN_HISTORY: 'cyber_divination_question_driven_history',
+  PITY_COUNTERS: 'cyber_divination_pity_counters'
 }
 
 function safeGet(key, defaultValue) {
@@ -275,7 +276,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 7,
+      version: 8,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -300,7 +301,8 @@ export const Storage = {
       multiSpreadHistory: this.getMultiSpreadHistory(),
       weeklyReports: this.getWeeklyReports(),
       hiddenEventsLog: this.getHiddenEventsLog(),
-      questionDrivenHistory: this.getQuestionDrivenHistory()
+      questionDrivenHistory: this.getQuestionDrivenHistory(),
+      pityCounters: this.getAllPityCounters()
     }
   },
 
@@ -333,6 +335,7 @@ export const Storage = {
       if (data.weeklyReports) safeSet(STORAGE_KEYS.WEEKLY_REPORTS, data.weeklyReports)
       if (data.hiddenEventsLog) safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, data.hiddenEventsLog)
       if (data.questionDrivenHistory) safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, data.questionDrivenHistory)
+      if (data.pityCounters) safeSet(STORAGE_KEYS.PITY_COUNTERS, data.pityCounters)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -349,7 +352,7 @@ export const Storage = {
     })
   },
 
-  saveDailyFortune(cardId, isReversed, reading, packId = 'core') {
+  saveDailyFortune(cardId, isReversed, reading, packId = 'core', pityInfo = null) {
     const today = new Date().toDateString()
     const fortune = this.getDailyFortune()
     const yesterday = new Date(Date.now() - 86400000).toDateString()
@@ -371,8 +374,9 @@ export const Storage = {
       advice: reading.advice,
       fortune: reading.fortune,
       date: today,
-      packId: actualPackId
-    }
+      packId: actualPackId,
+      pityInfo: pityInfo || null
+ }
 
     safeSet(STORAGE_KEYS.DAILY_FORTUNE, fortune)
 
@@ -389,7 +393,8 @@ export const Storage = {
       timestamp: Date.now(),
       consecutiveDays: fortune.consecutiveDays,
       spreadType: 'daily',
-      packId: actualPackId
+      packId: actualPackId,
+      pityInfo: pityInfo || null
     })
     if (history.length > 365) {
       history.splice(365)
@@ -988,5 +993,184 @@ export const Storage = {
 
   clearHiddenEventsLog() {
     safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, [])
+  },
+
+  getPityCounters(packId = 'core') {
+    const allPity = safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+    const actualPackId = packId || 'core'
+    if (!allPity[actualPackId]) {
+      allPity[actualPackId] = {
+        sinceLegendary: 0,
+        sinceEpic: 0,
+        sinceRare: 0,
+        totalPityTriggers: {
+          legendary: 0,
+          epic: 0,
+          rare: 0
+        },
+        history: []
+      }
+    }
+    return allPity[actualPackId]
+  },
+
+  getAllPityCounters() {
+    return safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+  },
+
+  getPityStatsOverview() {
+    const allPity = this.getAllPityCounters()
+    const result = {
+      totalPityTriggers: 0,
+      byRarity: {
+        legendary: { count: 0, totalPityTriggers: 0, avgPityCount: 0, highestPity: 0, history: [] },
+        epic: { count: 0, totalPityTriggers: 0, avgPityCount: 0, highestPity: 0, history: [] },
+        rare: { count: 0, totalPityTriggers: 0, avgPityCount: 0, highestPity: 0, history: [] }
+      },
+      byPack: {}
+    }
+    
+    const totalPityCounts = { legendary: [], epic: [], rare: [] }
+    
+    for (const [packId, pityData] of Object.entries(allPity)) {
+      result.byPack[packId] = {
+        sinceLegendary: pityData.sinceLegendary || 0,
+        sinceEpic: pityData.sinceEpic || 0,
+        sinceRare: pityData.sinceRare || 0,
+        totalPityTriggers: pityData.totalPityTriggers || { legendary: 0, epic: 0, rare: 0 }
+      }
+      
+      for (const rarity of ['legendary', 'epic', 'rare']) {
+        const cnt = pityData.totalPityTriggers?.[rarity] || 0
+        result.byRarity[rarity].totalPityTriggers += cnt
+        result.totalPityTriggers += cnt
+      }
+      
+      for (const h of pityData.history || []) {
+        if (result.byRarity[h.rarity]) {
+          result.byRarity[h.rarity].history.push(h)
+          result.byRarity[h.rarity].count++
+          if (h.pityCount) {
+            totalPityCounts[h.rarity].push(h.pityCount)
+            if (h.pityCount > result.byRarity[h.rarity].highestPity) {
+              result.byRarity[h.rarity].highestPity = h.pityCount
+            }
+          }
+        }
+      }
+    }
+    
+    for (const rarity of ['legendary', 'epic', 'rare']) {
+      const counts = totalPityCounts[rarity]
+      if (counts.length > 0) {
+        const sum = counts.reduce((a, b) => a + b, 0)
+        result.byRarity[rarity].avgPityCount = Math.round(sum / counts.length)
+      }
+    }
+    
+    return result
+  },
+
+  incrementPityCounters(packId = 'core') {
+    const allPity = safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+    const actualPackId = packId || 'core'
+    if (!allPity[actualPackId]) {
+      allPity[actualPackId] = {
+        sinceLegendary: 0,
+        sinceEpic: 0,
+        sinceRare: 0,
+        totalPityTriggers: {
+          legendary: 0,
+          epic: 0,
+          rare: 0
+        },
+        history: []
+      }
+    }
+    allPity[actualPackId].sinceLegendary++
+    allPity[actualPackId].sinceEpic++
+    allPity[actualPackId].sinceRare++
+    safeSet(STORAGE_KEYS.PITY_COUNTERS, allPity)
+    return allPity[actualPackId]
+  },
+
+  resetPityCounter(rarity, packId = 'core') {
+    const allPity = safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+    const actualPackId = packId || 'core'
+    if (!allPity[actualPackId]) {
+      allPity[actualPackId] = {
+        sinceLegendary: 0,
+        sinceEpic: 0,
+        sinceRare: 0,
+        totalPityTriggers: {
+          legendary: 0,
+          epic: 0,
+          rare: 0
+        },
+        history: []
+      }
+    }
+    const counters = allPity[actualPackId]
+    if (rarity === 'legendary') {
+      counters.sinceLegendary = 0
+      counters.sinceEpic = 0
+      counters.sinceRare = 0
+    } else if (rarity === 'epic') {
+      counters.sinceEpic = 0
+      counters.sinceRare = 0
+    } else if (rarity === 'rare') {
+      counters.sinceRare = 0
+    }
+    safeSet(STORAGE_KEYS.PITY_COUNTERS, allPity)
+    return counters
+  },
+
+  recordPityTrigger(rarity, packId = 'core', cardId = null) {
+    const allPity = safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+    const actualPackId = packId || 'core'
+    if (!allPity[actualPackId]) {
+      allPity[actualPackId] = {
+        sinceLegendary: 0,
+        sinceEpic: 0,
+        sinceRare: 0,
+        totalPityTriggers: {
+          legendary: 0,
+          epic: 0,
+          rare: 0
+        },
+        history: []
+      }
+    }
+    const counters = allPity[actualPackId]
+    if (counters.totalPityTriggers[rarity] !== undefined) {
+      counters.totalPityTriggers[rarity]++
+    }
+    if (counters.history) {
+      counters.history.unshift({
+        rarity,
+        cardId,
+        pityCount: {
+          legendary: counters.sinceLegendary,
+          epic: counters.sinceEpic,
+          rare: counters.sinceRare
+        },
+        timestamp: Date.now()
+      })
+      if (counters.history.length > 100) {
+        counters.history.splice(100)
+      }
+    }
+    safeSet(STORAGE_KEYS.PITY_COUNTERS, allPity)
+    return counters
+  },
+
+  clearPityCounters(packId = null) {
+    if (!packId) {
+      safeSet(STORAGE_KEYS.PITY_COUNTERS, {})
+    } else {
+      const allPity = safeGet(STORAGE_KEYS.PITY_COUNTERS, {})
+      delete allPity[packId]
+      safeSet(STORAGE_KEYS.PITY_COUNTERS, allPity)
+    }
   }
 }

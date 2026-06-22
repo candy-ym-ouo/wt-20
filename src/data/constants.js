@@ -337,3 +337,53 @@ export function getAllMultiSpreads() {
 export function getMultiSpreadConfig(spreadId) {
   return MULTI_SPREAD_CONFIG[spreadId] || null
 }
+
+export const PITY_CONFIG = {
+  [CARD_RARITY.LEGENDARY]: {
+    softPityStart: 60,
+    hardPity: 90,
+    baseRate: 3,
+    maxRate: 100,
+    rateIncrease: 5,
+    label: '传说'
+  },
+  [CARD_RARITY.EPIC]: {
+    softPityStart: 20,
+    hardPity: 40,
+    baseRate: 12,
+    maxRate: 100,
+    rateIncrease: 6,
+    label: '史诗'
+  },
+  [CARD_RARITY.RARE]: {
+    softPityStart: 5,
+    hardPity: 12,
+    baseRate: 25,
+    maxRate: 100,
+    rateIncrease: 10,
+    label: '稀有'
+  },
+  [CARD_RARITY.COMMON]: {
+    softPityStart: 0,
+    hardPity: 0,
+    baseRate: 60,
+    maxRate: 60,
+    rateIncrease: 0,
+    label: '普通'
+  }
+}
+
+export function getPityConfig(rarity) {
+  return PITY_CONFIG[rarity] || PITY_CONFIG[CARD_RARITY.COMMON]
+}
+
+export function calculatePityRate(rarity, pityCount) {
+  const config = getPityConfig(rarity)
+  if (config.hardPity === 0) return config.baseRate
+  if (pityCount >= config.hardPity) return config.maxRate
+  if (pityCount < config.softPityStart) return config.baseRate
+  
+  const stepsPastSoft = pityCount - config.softPityStart + 1
+  const increasedRate = config.baseRate + (stepsPastSoft * config.rateIncrease)
+  return Math.min(increasedRate, config.maxRate)
+}

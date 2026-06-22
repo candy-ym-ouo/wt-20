@@ -1,5 +1,5 @@
 import { CARDS } from '../data/cards.js'
-import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_SPREAD_CONFIG, DIVINATION_THEMES } from '../data/constants.js'
+import { RARITY_CONFIG, CARD_RARITY, getConsecutiveReward, THEME_CONFIG, MULTI_SPREAD_CONFIG, DIVINATION_THEMES, PITY_CONFIG, getPityConfig, calculatePityRate } from '../data/constants.js'
 import { Storage } from './storage.js'
 import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
 import { checkSeasonTasksAfterAction } from './seasonSystem.js'
@@ -18,6 +18,180 @@ export function getAllCards() {
 
 export function getCardById(id) {
   return CARDS.find(c => c.id === id)
+}
+
+export function getCurrentPityInfo(packId = null) {
+  const actualPackId = packId || getCurrentPackId()
+  const pity = Storage.getPityCounters(actualPackId)
+  
+  return {
+    legendary: {
+      count: pity.sinceLegendary,
+      rate: calculatePityRate(CARD_RARITY.LEGENDARY, pity.sinceLegendary),
+      config: getPityConfig(CARD_RARITY.LEGENDARY)
+    },
+    epic: {
+      count: pity.sinceEpic,
+      rate: calculatePityRate(CARD_RARITY.EPIC, pity.sinceEpic),
+      config: getPityConfig(CARD_RARITY.EPIC)
+    },
+    rare: {
+      count: pity.sinceRare,
+      rate: calculatePityRate(CARD_RARITY.RARE, pity.sinceRare),
+      config: getPityConfig(CARD_RARITY.RARE)
+    },
+    totalPityTriggers: pity.totalPityTriggers
+  }
+}
+
+export function calculateEffectiveProbabilities(packId = null, rarityConfig = null) {
+  const actualPackId = packId || getCurrentPackId()
+  const pity = Storage.getPityCounters(actualPackId)
+  const baseConfig = rarityConfig || RARITY_CONFIG
+  
+  const legendaryRate = calculatePityRate(CARD_RARITY.LEGENDARY, pity.sinceLegendary)
+  const epicRate = calculatePityRate(CARD_RARITY.EPIC, pity.sinceEpic)
+  const rareRate = calculatePityRate(CARD_RARITY.RARE, pity.sinceRare)
+  const commonRate = 100 - legendaryRate - epicRate - rareRate
+  
+  return {
+    [CARD_RARITY.LEGENDARY]: {
+      baseWeight: baseConfig[CARD_RARITY.LEGENDARY]?.weight ?? 3,
+      effectiveRate: Math.max(legendaryRate, 0),
+      pityCount: pity.sinceLegendary
+    },
+    [CARD_RARITY.EPIC]: {
+      baseWeight: baseConfig[CARD_RARITY.EPIC]?.weight ?? 12,
+      effectiveRate: Math.max(epicRate, 0),
+      pityCount: pity.sinceEpic
+    },
+    [CARD_RARITY.RARE]: {
+      baseWeight: baseConfig[CARD_RARITY.RARE]?.weight ?? 25,
+      effectiveRate: Math.max(rareRate, 0),
+      pityCount: pity.sinceRare
+    },
+    [CARD_RARITY.COMMON]: {
+      baseWeight: baseConfig[CARD_RARITY.COMMON]?.weight ?? 60,
+      effectiveRate: Math.max(commonRate, 0),
+      pityCount: 0
+    }
+  }
+}
+
+function getPityAdjustedWeights(cards, baseRarityConfig, packId) {
+  const actualPackId = packId || getCurrentPackId()
+  const pity = Storage.getPityCounters(actualPackId)
+  
+  const legendaryRate = calculatePityRate(CARD_RARITY.LEGENDARY, pity.sinceLegendary)
+  const epicRate = calculatePityRate(CARD_RARITY.EPIC, pity.sinceEpic)
+  const rareRate = calculatePityRate(CARD_RARITY.RARE, pity.sinceRare)
+  const commonRate = Math.max(0, 100 - legendaryRate - epicRate - rareRate)
+  
+  const effectiveRates = {
+    [CARD_RARITY.LEGENDARY]: legendaryRate,
+    [CARD_RARITY.EPIC]: epicRate,
+    [CARD_RARITY.RARE]: rareRate,
+    [CARD_RARITY.COMMON]: commonRate
+  }
+  
+  const cardsByRarity = {}
+  Object.values(CARD_RARITY).forEach(r => cardsByRarity[r] = [])
+  cards.forEach(card => {
+    if (cardsByRarity[card.rarity]) {
+      cardsByRarity[card.rarity].push(card)
+    }
+  })
+  
+  const nonEmptyRarities = Object.values(CARD_RARITY).filter(r => cardsByRarity[r].length > 0)
+  
+  let totalAssignedRate = 0
+  nonEmptyRarities.forEach(r => {
+    totalAssignedRate += effectiveRates[r]
+  })
+  
+  const normalizedRates = {}
+  nonEmptyRarities.forEach(r => {
+    normalizedRates[r] = totalAssignedRate > 0 ? (effectiveRates[r] / totalAssignedRate) : (1 / nonEmptyRarities.length)
+  })
+  
+  const weights = {}
+  cards.forEach(card => {
+    const rarity = card.rarity
+    const baseWeight = baseRarityConfig[rarity]?.weight ?? RARITY_CONFIG[rarity]?.weight ?? 1
+    const rarityCards = cardsByRarity[rarity]?.length ?? 1
+    const rarityRateShare = rarityCards > 0 ? (normalizedRates[rarity] ?? 0) / rarityCards : 0
+    weights[card.id] = Math.max(0.01, (baseWeight * 0.3) + (rarityRateShare * 1000))
+  })
+  
+  return weights
+}
+
+function weightedRandomSelectWithPity(cards, rarityConfig, packId) {
+  const actualPackId = packId || getCurrentPackId()
+  const weights = getPityAdjustedWeights(cards, rarityConfig, actualPackId)
+  
+  const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0)
+  let random = Math.random() * totalWeight
+  
+  for (const card of cards) {
+    random -= weights[card.id] ?? 1
+    if (random <= 0) {
+      return card
+    }
+  }
+  
+  return cards[cards.length - 1]
+}
+
+function determineIfPityTriggered(cardRarity, packId) {
+  const actualPackId = packId || getCurrentPackId()
+  const pity = Storage.getPityCounters(actualPackId)
+  const result = { isPity: false, pityType: null, pityCount: 0 }
+  
+  const rareConfig = getPityConfig(CARD_RARITY.RARE)
+  const epicConfig = getPityConfig(CARD_RARITY.EPIC)
+  const legendaryConfig = getPityConfig(CARD_RARITY.LEGENDARY)
+  
+  if (cardRarity === CARD_RARITY.LEGENDARY && pity.sinceLegendary >= legendaryConfig.hardPity) {
+    result.isPity = true
+    result.pityType = 'hard'
+    result.pityCount = pity.sinceLegendary
+  } else if (cardRarity === CARD_RARITY.LEGENDARY && pity.sinceLegendary >= legendaryConfig.softPityStart) {
+    result.isPity = true
+    result.pityType = 'soft'
+    result.pityCount = pity.sinceLegendary
+  } else if (cardRarity === CARD_RARITY.EPIC && pity.sinceEpic >= epicConfig.hardPity) {
+    result.isPity = true
+    result.pityType = 'hard'
+    result.pityCount = pity.sinceEpic
+  } else if (cardRarity === CARD_RARITY.EPIC && pity.sinceEpic >= epicConfig.softPityStart) {
+    result.isPity = true
+    result.pityType = 'soft'
+    result.pityCount = pity.sinceEpic
+  } else if (cardRarity === CARD_RARITY.RARE && pity.sinceRare >= rareConfig.hardPity) {
+    result.isPity = true
+    result.pityType = 'hard'
+    result.pityCount = pity.sinceRare
+  } else if (cardRarity === CARD_RARITY.RARE && pity.sinceRare >= rareConfig.softPityStart) {
+    result.isPity = true
+    result.pityType = 'soft'
+    result.pityCount = pity.sinceRare
+  }
+  
+  return result
+}
+
+function updatePityAfterDraw(cardRarity, cardId, packId) {
+  const actualPackId = packId || getCurrentPackId()
+  
+  const pityInfo = determineIfPityTriggered(cardRarity, actualPackId)
+  if (pityInfo.isPity) {
+    Storage.recordPityTrigger(cardRarity, actualPackId, cardId)
+  }
+  
+  Storage.resetPityCounter(cardRarity, actualPackId)
+  
+  return pityInfo
 }
 
 function weightedRandomSelect(cards) {
@@ -91,6 +265,7 @@ function weightedRandomSelectWithConfig(cards, rarityConfig) {
 }
 
 export function drawSingleCardFromPack(packId = null) {
+  const actualPackId = packId || getCurrentPackId()
   const cards = packId ? getPackCards(packId) : getCurrentPackCards()
   const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
   
@@ -98,20 +273,28 @@ export function drawSingleCardFromPack(packId = null) {
     return drawSingleCard()
   }
   
-  const card = weightedRandomSelectWithConfig(cards, rarityConfig)
-  const isReversed = Math.random() < 0.35
+  Storage.incrementPityCounters(actualPackId)
   
+  const card = weightedRandomSelectWithPity(cards, rarityConfig, actualPackId)
+  const isReversed = Math.random() < 0.35
   const reading = isReversed ? card.reversed : card.upright
+  const pityInfo = updatePityAfterDraw(card.rarity, card.id, actualPackId)
   
   return {
     card,
     isReversed,
     reading,
-    packId: packId || getCurrentPackId()
+    packId: actualPackId,
+    pityInfo: {
+      isPityTriggered: pityInfo.isPity,
+      pityType: pityInfo.pityType,
+      pityCount: pityInfo.pityCount
+    }
   }
 }
 
 export function drawThreeCardsFromPack(packId = null) {
+  const actualPackId = packId || getCurrentPackId()
   const cards = packId ? getPackCards(packId) : getCurrentPackCards()
   const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
   
@@ -121,15 +304,36 @@ export function drawThreeCardsFromPack(packId = null) {
   
   const drawnIds = new Set()
   const results = []
+  let highestRarityOrder = [CARD_RARITY.COMMON, CARD_RARITY.RARE, CARD_RARITY.EPIC, CARD_RARITY.LEGENDARY]
+  let highestRarityIdx = -1
+  let highestRarityCardId = null
   
   for (let i = 0; i < 3; i++) {
+    Storage.incrementPityCounters(actualPackId)
     let card
     let attempts = 0
     do {
-      const selectedCard = weightedRandomSelectWithConfig(cards, rarityConfig)
+      const selectedCard = weightedRandomSelectWithPity(cards, rarityConfig, actualPackId)
       const isReversed = Math.random() < 0.35
       const reading = isReversed ? selectedCard.reversed : selectedCard.upright
-      card = { card: selectedCard, isReversed, reading }
+      const pityInfo = updatePityAfterDraw(selectedCard.rarity, selectedCard.id, actualPackId)
+      card = { 
+        card: selectedCard, 
+        isReversed, 
+        reading,
+        pityInfo: {
+          isPityTriggered: pityInfo.isPity,
+          pityType: pityInfo.pityType,
+          pityCount: pityInfo.pityCount
+        }
+      }
+      
+      const rarityIdx = highestRarityOrder.indexOf(selectedCard.rarity)
+      if (rarityIdx > highestRarityIdx) {
+        highestRarityIdx = rarityIdx
+        highestRarityCardId = selectedCard.id
+      }
+      
       attempts++
     } while (drawnIds.has(card.card.id) && attempts < 20)
     
@@ -140,7 +344,7 @@ export function drawThreeCardsFromPack(packId = null) {
   return results.map((result, index) => ({
     ...result,
     position: ['过去', '现在', '未来'][index],
-    packId: packId || getCurrentPackId()
+    packId: actualPackId
   }))
 }
 
@@ -149,30 +353,33 @@ export function saveDrawResultWithPack(drawResult, spreadType = 'single', packId
   let records = []
   
   if (spreadType === 'single') {
-    const { card, isReversed, reading } = drawResult
-    Storage.addToCollection(card.id, isReversed)
-    Storage.updateStats(card.rarity, isReversed)
+    const { card, isReversed, reading, pityInfo } = drawResult
+    Storage.addToCollection(card.id, isReversed, actualPackId)
+    Storage.updateStats(card.rarity, isReversed, actualPackId)
     records = Storage.addDrawRecord({
       spreadType,
       cardId: card.id,
       isReversed,
       title: reading.title,
       meaning: reading.meaning,
-      packId: actualPackId
+      packId: actualPackId,
+      pityInfo: pityInfo || null
     })
   } else if (spreadType === 'three') {
     drawResult.forEach(({ card, isReversed }) => {
-      Storage.addToCollection(card.id, isReversed)
-      Storage.updateStats(card.rarity, isReversed)
+      Storage.addToCollection(card.id, isReversed, actualPackId)
+      Storage.updateStats(card.rarity, isReversed, actualPackId)
     })
     records = Storage.addDrawRecord({
       spreadType,
-      cards: drawResult.map(({ card, isReversed, position }) => ({
+      cards: drawResult.map(({ card, isReversed, position, pityInfo }) => ({
         cardId: card.id,
         isReversed,
-        position
+        position,
+        pityInfo: pityInfo || null
       })),
-      packId: actualPackId
+      packId: actualPackId,
+      pityInfo: drawResult.map(r => r.pityInfo || null)
     })
   }
   
@@ -188,30 +395,38 @@ export function saveDrawResultWithPack(drawResult, spreadType = 'single', packId
 
 export function saveDrawResult(drawResult, spreadType = 'single') {
   let records = []
+  const defaultPackId = getCurrentPackId()
   
   if (spreadType === 'single') {
-    const { card, isReversed, reading } = drawResult
-    Storage.addToCollection(card.id, isReversed)
-    Storage.updateStats(card.rarity, isReversed)
+    const { card, isReversed, reading, pityInfo, packId } = drawResult
+    const actualPackId = packId || defaultPackId
+    Storage.addToCollection(card.id, isReversed, actualPackId)
+    Storage.updateStats(card.rarity, isReversed, actualPackId)
     records = Storage.addDrawRecord({
       spreadType,
       cardId: card.id,
       isReversed,
       title: reading.title,
-      meaning: reading.meaning
+      meaning: reading.meaning,
+      packId: actualPackId,
+      pityInfo: pityInfo || null
     })
   } else if (spreadType === 'three') {
-    drawResult.forEach(({ card, isReversed }) => {
-      Storage.addToCollection(card.id, isReversed)
-      Storage.updateStats(card.rarity, isReversed)
+    drawResult.forEach(({ card, isReversed, packId }) => {
+      const actualPackId = packId || defaultPackId
+      Storage.addToCollection(card.id, isReversed, actualPackId)
+      Storage.updateStats(card.rarity, isReversed, actualPackId)
     })
     records = Storage.addDrawRecord({
       spreadType,
-      cards: drawResult.map(({ card, isReversed, position }) => ({
+      cards: drawResult.map(({ card, isReversed, position, pityInfo }) => ({
         cardId: card.id,
         isReversed,
-        position
-      }))
+        position,
+        pityInfo: pityInfo || null
+      })),
+      packId: drawResult[0]?.packId || defaultPackId,
+      pityInfo: drawResult.map(r => r.pityInfo || null)
     })
   }
   
@@ -240,46 +455,62 @@ function checkHiddenEvents(drawResult, spreadType) {
   
   if (stats.totalDraws === 1) {
     const card = spreadType === 'single' ? drawResult.card : drawResult[0].card
+    const pityInfo = spreadType === 'single' ? drawResult.pityInfo : drawResult[0].pityInfo
     if (card.hiddenEvent && card.hiddenEvent.trigger === 'first_draw') {
-      triggerHiddenEvent(card)
+      triggerHiddenEvent(card, pityInfo)
     }
   }
   
   if (stats.totalDraws === 3) {
     const loversCard = getCardById('neon-lovers')
     if (loversCard && loversCard.hiddenEvent && loversCard.hiddenEvent.trigger === 'draw_3_times') {
-      triggerHiddenEvent(loversCard)
+      triggerHiddenEvent(loversCard, null, { triggerType: 'draw_3_times' })
     }
   }
   
   if (spreadType === 'single') {
-    checkSingleCardEvents(drawResult.card, drawResult.isReversed)
+    checkSingleCardEvents(drawResult.card, drawResult.isReversed, drawResult.pityInfo)
   } else if (spreadType === 'three') {
-    drawResult.forEach(({ card }) => checkSingleCardEvents(card))
+    drawResult.forEach(({ card, isReversed, pityInfo }) => checkSingleCardEvents(card, isReversed, pityInfo))
   }
 }
 
-function checkSingleCardEvents(card, isReversed) {
+function checkSingleCardEvents(card, isReversed, pityInfo = null) {
   if (!card.hiddenEvent) return
   
   const trigger = card.hiddenEvent.trigger
   
   if (trigger === 'draw_world' && card.id === 'cyber-world') {
-    triggerHiddenEvent(card)
+    triggerHiddenEvent(card, pityInfo, { triggerType: 'specific_card' })
   }
   
   if (trigger === 'draw_ghost' && card.id === 'ghost-protocol') {
-    triggerHiddenEvent(card)
+    triggerHiddenEvent(card, pityInfo, { triggerType: 'specific_card' })
   }
   
   if (trigger === 'legendary_draw' && card.rarity === CARD_RARITY.LEGENDARY && !isReversed) {
-    triggerHiddenEvent(card)
+    const isPity = pityInfo?.isPityTriggered || false
+    const pityType = pityInfo?.pityType || null
+    triggerHiddenEvent(card, pityInfo, { 
+      triggerType: 'legendary_draw',
+      isPityTriggered: isPity,
+      pityType: pityType
+    })
   }
   
   if (trigger === 'lucky_draw' && card.rarity !== CARD_RARITY.COMMON && card.rarity !== CARD_RARITY.RARE) {
-    if (Math.random() < 0.1) {
-      triggerHiddenEvent(card)
+    const isPity = pityInfo?.isPityTriggered || false
+    const baseChance = isPity ? 0.5 : 0.1
+    if (Math.random() < baseChance) {
+      triggerHiddenEvent(card, pityInfo, { 
+        triggerType: 'lucky_draw',
+        isPityTriggered: isPity
+      })
     }
+  }
+
+  if (trigger === 'pity_guaranteed' && pityInfo?.isPityTriggered) {
+    triggerHiddenEvent(card, pityInfo, { triggerType: 'pity_guaranteed' })
   }
 }
 
@@ -293,7 +524,7 @@ export function onHiddenEvent(callback) {
   }
 }
 
-function triggerHiddenEvent(card) {
+function triggerHiddenEvent(card, pityInfo = null, extraContext = {}) {
   const event = card.hiddenEvent
   if (!event) return
 
@@ -303,12 +534,23 @@ function triggerHiddenEvent(card) {
   const isNew = triggerHiddenAchievement(achievementId)
   if (!isNew) return
 
+  const isPityTriggered = pityInfo?.isPityTriggered || extraContext?.isPityTriggered || false
+  const pityType = pityInfo?.pityType || extraContext?.pityType || null
+  const pityCount = pityInfo?.pityCount || 0
+
   const eventData = {
     ...event,
     achievementId,
     cardId: card.id,
     cardName: card.name,
-    unlockedAt: Date.now()
+    cardRarity: card.rarity,
+    unlockedAt: Date.now(),
+    pityInfo: {
+      isPityTriggered,
+      pityType,
+      pityCount
+    },
+    triggerContext: extraContext || {}
   }
 
   Storage.addHiddenEventLog(eventData)
@@ -364,14 +606,34 @@ export function drawDailyFortune(consecutiveDays = 1, packId = null) {
   const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
   const actualPackId = packId || getCurrentPackId()
   
+  Storage.incrementPityCounters(actualPackId)
+  
   let cardPool = cards.length > 0 ? [...cards] : [...CARDS]
+  
+  const pity = Storage.getPityCounters(actualPackId)
+  const legendaryRate = calculatePityRate(CARD_RARITY.LEGENDARY, pity.sinceLegendary)
+  const epicRate = calculatePityRate(CARD_RARITY.EPIC, pity.sinceEpic)
+  const rareRate = calculatePityRate(CARD_RARITY.RARE, pity.sinceRare)
+  const commonRate = Math.max(0, 100 - legendaryRate - epicRate - rareRate)
+  
   let weights = cardPool.map(card => {
     let weight = (rarityConfig[card.rarity]?.weight ?? RARITY_CONFIG[card.rarity]?.weight ?? 1)
+    
     if (reward) {
       if (reward.days >= 3 && card.rarity === CARD_RARITY.RARE) weight *= 1.5
       if (reward.days >= 14 && card.rarity === CARD_RARITY.EPIC) weight *= 1.8
       if (reward.days >= 30 && card.rarity === CARD_RARITY.LEGENDARY) weight *= 2.5
     }
+    
+    const pityMultipliers = {
+      [CARD_RARITY.LEGENDARY]: (legendaryRate / getPityConfig(CARD_RARITY.LEGENDARY).baseRate),
+      [CARD_RARITY.EPIC]: (epicRate / getPityConfig(CARD_RARITY.EPIC).baseRate),
+      [CARD_RARITY.RARE]: (rareRate / getPityConfig(CARD_RARITY.RARE).baseRate),
+      [CARD_RARITY.COMMON]: (commonRate / getPityConfig(CARD_RARITY.COMMON).baseRate)
+    }
+    const pityMult = pityMultipliers[card.rarity] ?? 1
+    weight *= Math.max(0.3, pityMult)
+    
     return weight
   })
   
@@ -389,23 +651,33 @@ export function drawDailyFortune(consecutiveDays = 1, packId = null) {
   
   const isReversed = seededRandom(seed + 999) < 0.3
   const reading = isReversed ? selectedCard.reversed : selectedCard.upright
+  const pityInfo = updatePityAfterDraw(selectedCard.rarity, selectedCard.id, actualPackId)
   
   return {
     card: selectedCard,
     isReversed,
     reading,
-    packId: actualPackId
+    packId: actualPackId,
+    pityInfo: {
+      isPityTriggered: pityInfo.isPity,
+      pityType: pityInfo.pityType,
+      pityCount: pityInfo.pityCount
+    }
   }
 }
 
 export function saveDailyFortuneResult(result) {
-  const { card, isReversed, reading, packId } = result
+  const { card, isReversed, reading, packId, pityInfo } = result
   const actualPackId = packId || getCurrentPackId()
   Storage.addToCollection(card.id, isReversed, actualPackId)
   Storage.updateStats(card.rarity, isReversed, actualPackId)
-  const saved = Storage.saveDailyFortune(card.id, isReversed, reading, actualPackId)
+  const saved = Storage.saveDailyFortune(card.id, isReversed, reading, actualPackId, pityInfo)
   checkAchievementsAfterAction('daily')
   checkSeasonTasksAfterAction('daily')
+  
+  checkSingleCardEvents(card, isReversed, pityInfo)
+  checkVisitorTriggerAfterDraw([result])
+  
   return saved
 }
 

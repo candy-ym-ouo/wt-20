@@ -1,27 +1,50 @@
 <script>
   import { onMount } from 'svelte'
   import { getFullProfile, getLuckyCardOfDay } from '../utils/profileAnalysis.js'
-  import { RARITY_CONFIG } from '../data/constants.js'
+  import { RARITY_CONFIG, CARD_RARITY, PITY_CONFIG } from '../data/constants.js'
   import CardDetailModal from '../components/CardDetailModal.svelte'
+  import { Storage } from '../utils/storage.js'
+  import { getThemePack, THEME_PACK_IDS } from '../data/themePacks.js'
 
   let profile = null
   let luckyCard = null
   let activeTab = 'overview'
   let selectedCard = null
   let isLoading = true
+  let pityStats = null
 
   const TABS = [
     { id: 'overview', label: '概览', icon: '📊' },
+    { id: 'pity', label: '保底', icon: '🛡️' },
     { id: 'rarity', label: '稀有度', icon: '💎' },
     { id: 'reversal', label: '正逆位', icon: '🔄' },
     { id: 'preference', label: '偏好', icon: '🎯' },
     { id: 'report', label: '报告', icon: '📋' }
   ]
 
+  function getPackName(packId) {
+    if (!packId || packId === THEME_PACK_IDS.CORE) return '核心卡包'
+    const pack = getThemePack(packId)
+    return pack?.name || packId
+  }
+
+  function getPackIcon(packId) {
+    if (!packId || packId === THEME_PACK_IDS.CORE) return '🎴'
+    const pack = getThemePack(packId)
+    return pack?.icon || '🎴'
+  }
+
+  function getPackColor(packId) {
+    if (!packId || packId === THEME_PACK_IDS.CORE) return '#00e5ff'
+    const pack = getThemePack(packId)
+    return pack?.color || '#888'
+  }
+
   function refresh() {
     isLoading = true
     profile = getFullProfile()
     luckyCard = getLuckyCardOfDay()
+    pityStats = Storage.getPityStatsOverview()
     setTimeout(() => {
       isLoading = false
     }, 300)
@@ -260,6 +283,123 @@
         </div>
       </div>
     {/if}
+
+  {:else if activeTab === 'pity'}
+    <div class="section">
+      <h2 class="section-title">🛡️ 保底机制统计</h2>
+      
+      {#if pityStats && (pityStats.totalPityTriggers > 0 || Object.keys(pityStats.byPack).length > 0)}
+        <div class="pity-overview-card">
+          <div class="pity-total-value glow-yellow">{pityStats.totalPityTriggers}</div>
+          <div class="pity-total-label">累计保底触发次数</div>
+          <div class="pity-subtitle mono">欧非守恒，命运终将眷顾</div>
+        </div>
+
+        <div class="pity-stats-grid">
+          {#each [CARD_RARITY.LEGENDARY, CARD_RARITY.EPIC, CARD_RARITY.RARE] as rarity}
+            {@const pityData = pityStats.byRarity[rarity]}
+            {@const config = PITY_CONFIG[rarity]}
+            {@const rarityConfig = RARITY_CONFIG[rarity]}
+            <div class="pity-stat-card" style="--rarity-color: {rarityConfig.color}">
+              <div class="pity-stat-header">
+                <div class="pity-rarity" style="color: {rarityConfig.color}">{rarityConfig.label}</div>
+                <div class="pity-count-value">{pityData.totalPityTriggers} 次</div>
+              </div>
+              <div class="pity-stat-divider"></div>
+              <div class="pity-stat-details">
+                <div class="pity-detail-row">
+                  <span>平均保底抽数</span>
+                  <span class="mono">{pityData.avgPityCount || '--'} / {config.hardPity}</span>
+                </div>
+                <div class="pity-detail-row">
+                  <span>最高保底抽数</span>
+                  <span class="mono">{pityData.highestPity || '--'} 抽</span>
+                </div>
+                <div class="pity-detail-row">
+                  <span>硬保底</span>
+                  <span class="mono">{config.hardPity} 抽</span>
+                </div>
+                <div class="pity-detail-row">
+                  <span>软保底起点</span>
+                  <span class="mono">{config.softPityStart} 抽</span>
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+
+        <div class="pity-packs-section">
+          <h3 class="subsection-title">📦 各卡包保底状态</h3>
+          <div class="pity-pack-list">
+            {#each Object.entries(pityStats.byPack) as [packId, packPity]}
+              <div class="pity-pack-item" style="--pack-color: {getPackColor(packId)}">
+                <div class="pack-header">
+                  <div class="pack-title">
+                    <span class="pack-icon">{getPackIcon(packId)}</span>
+                    <span>{getPackName(packId)}</span>
+                  </div>
+                  <div class="pack-trigger-count">
+                    累计保底 {packPity.totalPityTriggers.legendary + packPity.totalPityTriggers.epic + packPity.totalPityTriggers.rare} 次
+                  </div>
+                </div>
+                <div class="pack-pity-status">
+                  {#each [CARD_RARITY.LEGENDARY, CARD_RARITY.EPIC, CARD_RARITY.RARE] as rarity}
+                    {@const config = PITY_CONFIG[rarity]}
+                    {@const cntKey = rarity === CARD_RARITY.LEGENDARY ? 'sinceLegendary' : (rarity === CARD_RARITY.EPIC ? 'sinceEpic' : 'sinceRare')}
+                    {@const count = packPity[cntKey] || 0}
+                    {@const pct = Math.min(100, (count / config.hardPity) * 100)}
+                    <div class="mini-pity-bar" style="--bar-color: {RARITY_CONFIG[rarity].color}">
+                      <div class="mini-pity-label">
+                        <span style="color: {RARITY_CONFIG[rarity].color}">{RARITY_CONFIG[rarity].label}</span>
+                        <span class="mono">{count}/{config.hardPity}</span>
+                      </div>
+                      <div class="mini-pity-progress">
+                        <div class="mini-pity-fill" style="width: {pct}%"></div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        {#if pityStats.byRarity[CARD_RARITY.LEGENDARY].history.length > 0 || pityStats.byRarity[CARD_RARITY.EPIC].history.length > 0 || pityStats.byRarity[CARD_RARITY.RARE].history.length > 0}
+          <div class="pity-history-section">
+            <h3 class="subsection-title">📜 保底触发记录</h3>
+            <div class="pity-history-list">
+              {#each [...pityStats.byRarity[CARD_RARITY.LEGENDARY].history.concat(
+                pityStats.byRarity[CARD_RARITY.EPIC].history,
+                pityStats.byRarity[CARD_RARITY.RARE].history
+              ).sort((a,b) => b.timestamp - a.timestamp).slice(0, 10) as record}
+                {@const rc = RARITY_CONFIG[record.rarity]}
+                <div class="pity-history-item" style="--item-color: {rc.color}">
+                  <div class="ph-symbol" style="color: {rc.color}">{record.type === 'hard' ? '🛡️' : '✨'}</div>
+                  <div class="ph-info">
+                    <div class="ph-title">
+                      <span style="color: {rc.color}">{rc.label}</span>
+                      <span class="ph-type-badge ph-type-{record.type}">{record.type === 'hard' ? '硬保底' : '软保底'}</span>
+                    </div>
+                  <div class="ph-desc mono">{record.pityCount} 抽 · {formatDate(record.timestamp)}</div>
+                  {#if record.packId}
+                    <div class="ph-pack" style="color: {getPackColor(record.packId)}">
+                      {getPackIcon(record.packId)} {getPackName(record.packId)}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {:else}
+        <div class="data-notice">
+          <div class="notice-icon">🛡️</div>
+          <div class="notice-title">保底数据待积累</div>
+          <div class="notice-desc">触发保底机制后，即可查看保底统计与各卡包保底状态</div>
+          <button class="btn btn-primary btn-small" on:click={goToDraw}>去抽卡</button>
+        </div>
+      {/if}
+    </div>
 
   {:else if activeTab === 'rarity'}
     <div class="section">
@@ -1633,6 +1773,240 @@
     }
     50% {
       opacity: 0.7;
+    }
+  }
+
+  .pity-overview-card {
+    background: linear-gradient(135deg, rgba(255, 207, 64, 0.12), rgba(255, 71, 87, 0.08));
+    border: 1px solid var(--accent-yellow);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .pity-total-value {
+    font-family: var(--font-mono);
+    font-size: 42px;
+    font-weight: bold;
+    margin-bottom: 4px;
+    text-shadow: 0 0 15px currentColor;
+  }
+
+  .pity-total-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .pity-subtitle {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .pity-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .pity-stat-card {
+    background: var(--bg-card);
+    border: 1px solid color-mix(in srgb, var(--rarity-color) 40%, transparent);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .pity-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+
+  .pity-rarity {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .pity-count-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .pity-stat-divider {
+    height: 1px;
+    background: color-mix(in srgb, var(--rarity-color) 25%, transparent);
+    margin-bottom: 8px;
+  }
+
+  .pity-stat-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .pity-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .pity-packs-section {
+    margin-bottom: 20px;
+  }
+
+  .pity-pack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pity-pack-item {
+    background: var(--bg-card);
+    border: 1px solid color-mix(in srgb, var(--pack-color) 35%, transparent);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .pack-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .pack-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .pack-icon {
+    font-size: 16px;
+  }
+
+  .pack-trigger-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .pack-pity-status {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mini-pity-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mini-pity-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+  }
+
+  .mini-pity-progress {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .mini-pity-fill {
+    height: 100%;
+    background: var(--bar-color);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 4px var(--bar-color);
+  }
+
+  .pity-history-section {
+    margin-bottom: 0;
+  }
+
+  .pity-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pity-history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid color-mix(in srgb, var(--item-color) 30%, transparent);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .ph-symbol {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .ph-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ph-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .ph-type-badge {
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+  }
+
+  .ph-type-hard {
+    background: rgba(255, 71, 87, 0.2);
+    border: 1px solid rgba(255, 71, 87, 0.4);
+    color: var(--accent-red);
+  }
+
+  .ph-type-soft {
+    background: rgba(255, 207, 64, 0.2);
+    border: 1px solid rgba(255, 207, 64, 0.4);
+    color: var(--accent-yellow);
+  }
+
+  .ph-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .ph-pack {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    opacity: 0.8;
+  }
+
+  @media (max-width: 480px) {
+    .pity-stats-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

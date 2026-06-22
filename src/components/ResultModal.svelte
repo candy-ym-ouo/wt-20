@@ -174,6 +174,16 @@
             <div class="mono" style="font-size: 10px; color: var(--text-dim)">
               {result.isReversed ? '逆位' : '正位'}
             </div>
+            {#if result.pityInfo?.triggered}
+              <div 
+                class="pity-badge pity-{result.pityInfo.type || 'soft'}"
+                title="保底触发">
+                🛡️ {result.pityInfo.type === 'hard' ? '硬保底' : '软保底'}
+                {#if result.pityInfo.pityCount}
+                  ({result.pityInfo.pityCount}抽)
+                {/if}
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -571,5 +581,36 @@
     flex: 1;
     font-size: 12px;
     padding: 10px 16px;
+  }
+
+  .pity-badge {
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-align: center;
+    animation: pityGlow 2s ease-in-out infinite;
+  }
+
+  .pity-badge.pity-soft {
+    background: rgba(255, 207, 64, 0.15);
+    border: 1px solid var(--accent-yellow);
+    color: var(--accent-yellow);
+  }
+
+  .pity-badge.pity-hard {
+    background: rgba(255, 71, 87, 0.15);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+  }
+
+  @keyframes pityGlow {
+    0%, 100% {
+      box-shadow: 0 0 5px currentColor;
+    }
+    50% {
+      box-shadow: 0 0 15px currentColor;
+    }
   }
 </style>
