@@ -1,15 +1,19 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { CARDS } from '../data/cards.js'
   import { CARD_RARITY, RARITY_CONFIG, CARD_CATEGORY, CATEGORY_CONFIG } from '../data/constants.js'
   import { hasEncyclopediaEntry } from '../data/encyclopedia.js'
   import EncyclopediaDetailModal from '../components/EncyclopediaDetailModal.svelte'
+  import { getAllThemePacks, isPackUnlocked } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let selectedCard = null
   let activeCategory = 'all'
   let activeRarity = 'all'
+  let activePackFilter = 'all'
   let searchQuery = ''
   let sortBy = 'number'
+  let packs = []
 
   const CATEGORY_TABS = [
     { id: 'all', label: '全部类别', icon: '📋' },
@@ -48,7 +52,16 @@
       card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       card.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase())) ||
       card.number.toString().includes(searchQuery)
-    return matchesCategory && matchesRarity && matchesSearch
+    
+    let matchesPack = true
+    if (activePackFilter !== 'all') {
+      const pack = getThemePack(activePackFilter)
+      if (pack) {
+        matchesPack = pack.cardIds.includes(card.id)
+      }
+    }
+    
+    return matchesCategory && matchesRarity && matchesSearch && matchesPack
   }).sort((a, b) => {
     if (sortBy === 'number') return a.number - b.number
     if (sortBy === 'rarity') return RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity]
@@ -56,20 +69,33 @@
     return 0
   })
 
+  $: currentPackStats = (() => {
+    if (activePackFilter === 'all') {
+      return { total: CARDS.length, withEncyclopedia: CARDS.filter(c => hasEncyclopediaEntry(c.id)).length }
+    }
+    const pack = getThemePack(activePackFilter)
+    if (!pack) return { total: 0, withEncyclopedia: 0 }
+    const packCards = CARDS.filter(c => pack.cardIds.includes(c.id))
+    return { 
+      total: packCards.length, 
+      withEncyclopedia: packCards.filter(c => hasEncyclopediaEntry(c.id)).length 
+    }
+  })()
+
   $: stats = {
-    total: CARDS.length,
-    withEncyclopedia: CARDS.filter(c => hasEncyclopediaEntry(c.id)).length,
+    total: currentPackStats.total,
+    withEncyclopedia: currentPackStats.withEncyclopedia,
     byCategory: Object.values(CARD_CATEGORY).map(cat => ({
       id: cat,
       label: CATEGORY_CONFIG[cat].label,
       icon: CATEGORY_CONFIG[cat].icon,
-      count: CARDS.filter(c => c.category === cat).length
+      count: filteredCards.filter(c => c.category === cat).length
     })),
     byRarity: Object.values(CARD_RARITY).map(rar => ({
       id: rar,
       label: RARITY_CONFIG[rar].label,
       color: RARITY_CONFIG[rar].color,
-      count: CARDS.filter(c => c.rarity === rar).length
+      count: filteredCards.filter(c => c.rarity === rar).length
     }))
   }
 
@@ -85,15 +111,53 @@
     const container = document.querySelector('.page-container')
     if (container) container.scrollTop = 0
   }
+
+  function refreshPacks() {
+    packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
+  }
+
+  function handlePackChanged() {
+    refreshPacks()
+  }
+
+  onMount(() => {
+    refreshPacks()
+    window.addEventListener('packChanged', handlePackChanged)
+  })
+
+  onDestroy(() => {
+    window.removeEventListener('packChanged', handlePackChanged)
+  })
 </script>
 
 <h1 class="page-title">◆ 卡 牌 图 鉴 百 科 ◆</h1>
+
+<div class="pack-filter-bar">
+  <button 
+    class="pack-chip {activePackFilter === 'all' ? 'active' : ''}"
+    on:click={() => activePackFilter = 'all'}
+  >
+    📚 全部卡包
+  </button>
+  {#each packs as pack}
+    <button 
+      class="pack-chip {activePackFilter === pack.id ? 'active' : ''}"
+      style="--pack-color: {pack.color}"
+      on:click={() => activePackFilter = pack.id}
+    >
+      <span class="chip-icon">{pack.icon}</span>
+      <span>{pack.name}</span>
+    </button>
+  {/each}
+</div>
 
 <div class="encyclopedia-intro">
   <div class="intro-text">
     <span class="intro-icon">📖</span>
     <div>
-      <h3 class="intro-title mono">赛博宇宙卡牌档案库</h3>
+      <h3 class="intro-title mono">
+        {activePackFilter === 'all' ? '赛博宇宙卡牌档案库' : (getThemePack(activePackFilter)?.name || '') + '卡牌档案'}
+      </h3>
       <p class="intro-desc">收录全部 {stats.total} 张卡牌的背景设定、原型解析与深度解读。已收录详细百科：<span class="glow-cyan mono">{stats.withEncyclopedia}</span> / {stats.total}</p>
     </div>
   </div>
@@ -542,5 +606,46 @@
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
+  }
+
+  .pack-filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pack-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+  }
+
+  .pack-chip:hover {
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+  }
+
+  .pack-chip.active {
+    background: color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 15%, transparent);
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 25%, transparent);
+  }
+
+  .chip-icon {
+    font-size: 14px;
   }
 </style>

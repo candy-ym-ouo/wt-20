@@ -4,6 +4,13 @@ import { Storage } from './storage.js'
 import { checkAchievementsAfterAction, triggerHiddenAchievement } from './achievementSystem.js'
 import { checkSeasonTasksAfterAction } from './seasonSystem.js'
 import { checkVisitorTriggers, triggerVisitor } from './mysteriousVisitorSystem.js'
+import { 
+  getCurrentPackCards, 
+  getCurrentPackRarityConfig, 
+  getCurrentPackId,
+  getPackCards,
+  getPackRarityConfig
+} from './themePackSystem.js'
 
 export function getAllCards() {
   return CARDS
@@ -64,6 +71,119 @@ export function drawThreeCards() {
     ...result,
     position: ['过去', '现在', '未来'][index]
   }))
+}
+
+function weightedRandomSelectWithConfig(cards, rarityConfig) {
+  const totalWeight = cards.reduce((sum, card) => {
+    return sum + (rarityConfig[card.rarity]?.weight ?? RARITY_CONFIG[card.rarity]?.weight ?? 1)
+  }, 0)
+  
+  let random = Math.random() * totalWeight
+  
+  for (const card of cards) {
+    random -= (rarityConfig[card.rarity]?.weight ?? RARITY_CONFIG[card.rarity]?.weight ?? 1)
+    if (random <= 0) {
+      return card
+    }
+  }
+  
+  return cards[cards.length - 1]
+}
+
+export function drawSingleCardFromPack(packId = null) {
+  const cards = packId ? getPackCards(packId) : getCurrentPackCards()
+  const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
+  
+  if (cards.length === 0) {
+    return drawSingleCard()
+  }
+  
+  const card = weightedRandomSelectWithConfig(cards, rarityConfig)
+  const isReversed = Math.random() < 0.35
+  
+  const reading = isReversed ? card.reversed : card.upright
+  
+  return {
+    card,
+    isReversed,
+    reading,
+    packId: packId || getCurrentPackId()
+  }
+}
+
+export function drawThreeCardsFromPack(packId = null) {
+  const cards = packId ? getPackCards(packId) : getCurrentPackCards()
+  const rarityConfig = packId ? getPackRarityConfig(packId) : getCurrentPackRarityConfig()
+  
+  if (cards.length < 3) {
+    return drawThreeCards()
+  }
+  
+  const drawnIds = new Set()
+  const results = []
+  
+  for (let i = 0; i < 3; i++) {
+    let card
+    let attempts = 0
+    do {
+      const selectedCard = weightedRandomSelectWithConfig(cards, rarityConfig)
+      const isReversed = Math.random() < 0.35
+      const reading = isReversed ? selectedCard.reversed : selectedCard.upright
+      card = { card: selectedCard, isReversed, reading }
+      attempts++
+    } while (drawnIds.has(card.card.id) && attempts < 20)
+    
+    drawnIds.add(card.card.id)
+    results.push(card)
+  }
+  
+  return results.map((result, index) => ({
+    ...result,
+    position: ['过去', '现在', '未来'][index],
+    packId: packId || getCurrentPackId()
+  }))
+}
+
+export function saveDrawResultWithPack(drawResult, spreadType = 'single', packId = null) {
+  const actualPackId = packId || getCurrentPackId()
+  let records = []
+  
+  if (spreadType === 'single') {
+    const { card, isReversed, reading } = drawResult
+    Storage.addToCollection(card.id, isReversed)
+    Storage.updateStats(card.rarity, isReversed)
+    records = Storage.addDrawRecord({
+      spreadType,
+      cardId: card.id,
+      isReversed,
+      title: reading.title,
+      meaning: reading.meaning,
+      packId: actualPackId
+    })
+  } else if (spreadType === 'three') {
+    drawResult.forEach(({ card, isReversed }) => {
+      Storage.addToCollection(card.id, isReversed)
+      Storage.updateStats(card.rarity, isReversed)
+    })
+    records = Storage.addDrawRecord({
+      spreadType,
+      cards: drawResult.map(({ card, isReversed, position }) => ({
+        cardId: card.id,
+        isReversed,
+        position
+      })),
+      packId: actualPackId
+    })
+  }
+  
+  checkHiddenEvents(drawResult, spreadType)
+  checkAchievementsAfterAction('draw')
+  checkSeasonTasksAfterAction('draw')
+
+  const drawnCards = spreadType === 'single' ? [drawResult] : drawResult
+  checkVisitorTriggerAfterDraw(drawnCards)
+
+  return records
 }
 
 export function saveDrawResult(drawResult, spreadType = 'single') {

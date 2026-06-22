@@ -1,11 +1,14 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import CardDrawCanvas from '../components/CardDrawCanvas.svelte'
   import CardDisplay from '../components/CardDisplay.svelte'
   import ResultModal from '../components/ResultModal.svelte'
-  import { drawSingleCard, drawThreeCards, saveDrawResult } from '../utils/cardSystem.js'
+  import ThemePackSelector from '../components/ThemePackSelector.svelte'
+  import { drawSingleCard, drawThreeCards, saveDrawResult, drawSingleCardFromPack, drawThreeCardsFromPack, saveDrawResultWithPack } from '../utils/cardSystem.js'
   import { Storage } from '../utils/storage.js'
   import { CARDS } from '../data/cards.js'
+  import { getCurrentPack, getCurrentPackCards, getCurrentPackId, getPackCollectionStats } from '../utils/themePackSystem.js'
+  import { getPackStats } from '../data/themePacks.js'
 
   let canvas
   let isAnimating = false
@@ -13,9 +16,18 @@
   let showResult = false
   let currentSpread = 'single'
   let stats = Storage.getStats()
+  let currentPack = null
+  let packStats = null
+  let collectionStats = null
+  let showPackSelector = false
+  let removePackListener
 
-  function refreshStats() {
+  function refresh() {
     stats = Storage.getStats()
+    currentPack = getCurrentPack()
+    const packId = getCurrentPackId()
+    packStats = getPackStats(packId)
+    collectionStats = getPackCollectionStats(packId)
   }
 
   async function handleDraw(type) {
@@ -25,9 +37,9 @@
 
     let results
     if (type === 'single') {
-      results = [drawSingleCard()]
+      results = [drawSingleCardFromPack()]
     } else {
-      results = drawThreeCards()
+      results = drawThreeCardsFromPack()
     }
 
     drawResults = results
@@ -36,8 +48,8 @@
       await canvas.playDrawAnimation(results)
     }
 
-    saveDrawResult(type === 'single' ? results[0] : results, type)
-    refreshStats()
+    saveDrawResultWithPack(type === 'single' ? results[0] : results, type)
+    refresh()
 
     setTimeout(() => {
       showResult = true
@@ -61,9 +73,52 @@
       canvas.reset()
     }
   }
+
+  function handlePackChanged(e) {
+    refresh()
+    if (canvas && canvas.reset) {
+      canvas.reset()
+    }
+    drawResults = null
+    showResult = false
+    isAnimating = false
+  }
+
+  onMount(() => {
+    refresh()
+    removePackListener = (e) => {
+      if (e.type === 'packChanged') {
+        refresh()
+      }
+    }
+    window.addEventListener('packChanged', handlePackChanged)
+  })
+
+  onDestroy(() => {
+    if (removePackListener) {
+      window.removeEventListener('packChanged', handlePackChanged)
+    }
+  })
 </script>
 
-<h1 class="page-title">◆ 赛博占卜 ◆</h1>
+<div class="page-header">
+  <h1 class="page-title">◆ 赛博占卜 ◆</h1>
+  <button 
+    class="pack-select-btn"
+    style="--pack-color: {currentPack?.color || '#00e5ff'}"
+    on:click={() => showPackSelector = !showPackSelector}
+  >
+    <span class="pack-icon">{currentPack?.icon || '🎴'}</span>
+    <span class="pack-name">{currentPack?.name || '卡包'}</span>
+    <span class="arrow">{showPackSelector ? '▲' : '▼'}</span>
+  </button>
+</div>
+
+{#if showPackSelector}
+  <div class="pack-selector-container">
+    <ThemePackSelector {showPackSelector} compact={false} />
+  </div>
+{/if}
 
 <div class="stats-grid">
   <div class="stat-card">
@@ -71,8 +126,8 @@
     <div class="stat-label">总抽卡次数</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">{Object.keys(Storage.getCollection()).length}/{CARDS.length}</div>
-    <div class="stat-label">已收集</div>
+    <div class="stat-value">{collectionStats?.collectedCount || 0}/{packStats?.totalCards || CARDS.length}</div>
+    <div class="stat-label">本包收集</div>
   </div>
   <div class="stat-card">
     <div class="stat-value">{stats.legendaryCount}</div>
@@ -101,7 +156,7 @@
 />
 
 <p class="hint mono">
-  点击按钮开始抽卡，系统将连接命运数据流...
+  当前卡包：{currentPack?.name || '核心卡包'} · 点击按钮开始抽卡...
 </p>
 
 {#if showResult && drawResults}
@@ -114,6 +169,66 @@
 {/if}
 
 <style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .pack-select-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--pack-color, #00e5ff);
+    border-radius: 16px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .pack-select-btn:hover {
+    background: color-mix(in srgb, var(--pack-color, #00e5ff) 10%, var(--bg-card));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--pack-color, #00e5ff) 25%, transparent);
+  }
+
+  .pack-icon {
+    font-size: 14px;
+  }
+
+  .pack-name {
+    font-weight: 500;
+  }
+
+  .arrow {
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  .pack-selector-container {
+    margin-bottom: 16px;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .hint {
     text-align: center;
     font-size: 11px;

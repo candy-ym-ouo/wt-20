@@ -1,21 +1,30 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { CARDS } from '../data/cards.js'
   import { CARD_RARITY, RARITY_CONFIG, CATEGORY_CONFIG } from '../data/constants.js'
   import { Storage } from '../utils/storage.js'
   import { achievementStats } from '../utils/achievementSystem.js'
   import CardDetailModal from '../components/CardDetailModal.svelte'
+  import { getAllThemePacks, getPackCards, isPackUnlocked } from '../utils/themePackSystem.js'
+  import { getThemePack } from '../data/themePacks.js'
 
   let collection = {}
   let selectedCard = null
   let activeTab = 'all'
+  let activePackFilter = 'all'
   let searchQuery = ''
+  let packs = []
+  let removePackListener
 
   const TABS = [
     { id: 'all', label: '全部' },
     { id: 'collected', label: '已收集' },
     { id: 'locked', label: '未收集' }
   ]
+
+  function refreshPacks() {
+    packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
+  }
 
   $: filteredCards = CARDS.filter(card => {
     const isCollected = !!collection[card.id]
@@ -25,15 +34,34 @@
     const matchesSearch = !searchQuery ||
       card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       card.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesTab && matchesSearch
+    
+    let matchesPack = true
+    if (activePackFilter !== 'all') {
+      const pack = getThemePack(activePackFilter)
+      if (pack) {
+        matchesPack = pack.cardIds.includes(card.id)
+      }
+    }
+    
+    return matchesTab && matchesSearch && matchesPack
   })
 
-  $: collectedCount = Object.keys(collection).length
-  $: totalCount = CARDS.length
-  $: progressPercent = Math.round((collectedCount / totalCount) * 100)
+  $: currentPackStats = (() => {
+    if (activePackFilter === 'all') {
+      return { total: CARDS.length, collected: Object.keys(collection).length }
+    }
+    const packCards = getPackCards(activePackFilter)
+    const collectedCount = packCards.filter(c => collection[c.id]).length
+    return { total: packCards.length, collected: collectedCount }
+  })()
+
+  $: collectedCount = currentPackStats.collected
+  $: totalCount = currentPackStats.total
+  $: progressPercent = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0
 
   function refresh() {
     collection = Storage.getCollection()
+    refreshPacks()
   }
 
   function openCardDetail(card) {
@@ -51,17 +79,51 @@
     window.dispatchEvent(event)
   }
 
+  function handlePackChanged() {
+    refresh()
+  }
+
   onMount(() => {
     refresh()
+    removePackListener = handlePackChanged
+    window.addEventListener('packChanged', removePackListener)
+  })
+
+  onDestroy(() => {
+    if (removePackListener) {
+      window.removeEventListener('packChanged', removePackListener)
+    }
   })
 </script>
 
 <h1 class="page-title">◆ 收 藏 册 ◆</h1>
 
+<div class="pack-filter-bar">
+  <button 
+    class="pack-chip {activePackFilter === 'all' ? 'active' : ''}"
+    on:click={() => activePackFilter = 'all'}
+  >
+    📚 全部
+  </button>
+  {#each packs as pack}
+    <button 
+      class="pack-chip {activePackFilter === pack.id ? 'active' : ''}"
+      style="--pack-color: {pack.color}"
+      on:click={() => activePackFilter = pack.id}
+    >
+      <span class="chip-icon">{pack.icon}</span>
+      <span>{pack.name}</span>
+    </button>
+  {/each}
+</div>
+
 <div class="stats-grid">
   <div class="stat-card" style="grid-column: span 2;">
     <div class="stat-value glow-cyan">{collectedCount} / {totalCount}</div>
-    <div class="stat-label">收集进度 {progressPercent}%</div>
+    <div class="stat-label">
+      {activePackFilter === 'all' ? '总收集进度' : (getThemePack(activePackFilter)?.name || '') + '收集进度'} 
+      {progressPercent}%
+    </div>
     <div class="progress-bar">
       <div class="progress-fill" style="width: {progressPercent}%"></div>
     </div>
@@ -139,6 +201,46 @@
 {/if}
 
 <style>
+  .pack-filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pack-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .pack-chip:hover {
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+  }
+
+  .pack-chip.active {
+    background: color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 15%, transparent);
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 25%, transparent);
+  }
+
+  .chip-icon {
+    font-size: 14px;
+  }
+
   .progress-bar {
     width: 100%;
     height: 6px;

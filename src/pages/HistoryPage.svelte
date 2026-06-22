@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { Storage } from '../utils/storage.js'
   import { getCardById } from '../utils/cardSystem.js'
   import CardDisplay from '../components/CardDisplay.svelte'
@@ -7,6 +7,8 @@
   import ShareModal from '../components/ShareModal.svelte'
   import { THEME_CONFIG, MULTI_SPREAD_CONFIG } from '../data/constants.js'
   import { buildShareDataFromRecord } from '../utils/shareSystem.js'
+  import { getAllThemePacks, isPackUnlocked } from '../utils/themePackSystem.js'
+  import { getThemePack, THEME_PACK_IDS } from '../data/themePacks.js'
 
   export let initialTab = 'divination'
 
@@ -25,6 +27,35 @@
   let currentQuestionContext = null
   let currentRecordId = null
   let currentInterpretation = null
+  let activePackFilter = 'all'
+  let packs = []
+  let removePackListener
+
+  function refreshPacks() {
+    packs = getAllThemePacks().filter(p => isPackUnlocked(p.id))
+  }
+
+  function getPackInfo(packId) {
+    if (!packId) {
+      return { id: THEME_PACK_IDS.CORE, name: '核心卡包', icon: '🎴', color: '#00e5ff' }
+    }
+    const pack = getThemePack(packId)
+    return pack || { id: packId, name: packId, icon: '🎴', color: '#888' }
+  }
+
+  function filterByPack(records, packId) {
+    if (packId === 'all') return records
+    return records.filter(r => {
+      const recordPackId = r.packId || THEME_PACK_IDS.CORE
+      return recordPackId === packId
+    })
+  }
+
+  $: filteredHistory = filterByPack(history, activePackFilter)
+  $: filteredDailyHistory = filterByPack(dailyHistory, activePackFilter)
+  $: filteredThemeHistory = filterByPack(themeHistory, activePackFilter)
+  $: filteredSpreadHistory = filterByPack(spreadHistory, activePackFilter)
+  $: filteredQdHistory = filterByPack(qdHistory, activePackFilter)
 
   function refresh() {
     const raw = Storage.getDrawHistory()
@@ -32,7 +63,8 @@
       if (record.spreadType === 'single') {
         return {
           ...record,
-          _card: getCardById(record.cardId)
+          _card: getCardById(record.cardId),
+          _pack: getPackInfo(record.packId)
         }
       } else if (record.spreadType === 'three') {
         return {
@@ -40,16 +72,18 @@
           _cards: record.cards.map(c => ({
             ...c,
             _card: getCardById(c.cardId)
-          }))
+          })),
+          _pack: getPackInfo(record.packId)
         }
       }
-      return record
+      return { ...record, _pack: getPackInfo(record.packId) }
     })
 
     const dailyRaw = Storage.getDailyFortuneHistory()
     dailyHistory = dailyRaw.map(record => ({
       ...record,
-      _card: getCardById(record.cardId)
+      _card: getCardById(record.cardId),
+      _pack: getPackInfo(record.packId)
     }))
 
     const themeRaw = Storage.getThemeDivinationHistory()
@@ -59,7 +93,8 @@
       _cards: record.cards.map(c => ({
         ...c,
         _card: getCardById(c.cardId)
-      }))
+      })),
+      _pack: getPackInfo(record.packId)
     }))
 
     const spreadRaw = Storage.getMultiSpreadHistory()
@@ -69,7 +104,8 @@
       _cards: record.cards.map(c => ({
         ...c,
         _card: getCardById(c.cardId)
-      }))
+      })),
+      _pack: getPackInfo(record.packId)
     }))
 
     const qdRaw = Storage.getQuestionDrivenHistory()
@@ -78,8 +114,13 @@
       _cards: record.cards.map(c => ({
         ...c,
         _card: getCardById(c.cardId)
-      }))
+      })),
+      _pack: getPackInfo(record.packId)
     }))
+  }
+
+  function handlePackChanged() {
+    refreshPacks()
   }
 
   function formatTime(timestamp) {
@@ -326,6 +367,15 @@
 
   onMount(() => {
     refresh()
+    refreshPacks()
+    removePackListener = handlePackChanged
+    window.addEventListener('packChanged', removePackListener)
+  })
+
+  onDestroy(() => {
+    if (removePackListener) {
+      window.removeEventListener('packChanged', removePackListener)
+    }
   })
 </script>
 
@@ -334,11 +384,30 @@
   <button class="btn icon-btn" on:click={goToReview} title="数据回顾">
     📊
   </button>
-  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0) || (activeTab === 'spread' && spreadHistory.length > 0) || (activeTab === 'question-driven' && qdHistory.length > 0)}
+  {#if (activeTab === 'divination' && filteredHistory.length > 0) || (activeTab === 'daily' && filteredDailyHistory.length > 0) || (activeTab === 'theme' && filteredThemeHistory.length > 0) || (activeTab === 'spread' && filteredSpreadHistory.length > 0) || (activeTab === 'question-driven' && filteredQdHistory.length > 0)}
     <button class="btn icon-btn" on:click={clearHistory} title="清空历史">
       🗑️
     </button>
   {/if}
+</div>
+
+<div class="pack-filter-bar">
+  <button 
+    class="pack-chip {activePackFilter === 'all' ? 'active' : ''}"
+    on:click={() => activePackFilter = 'all'}
+  >
+    📚 全部卡包
+  </button>
+  {#each packs as pack}
+    <button 
+      class="pack-chip {activePackFilter === pack.id ? 'active' : ''}"
+      style="--pack-color: {pack.color}"
+      on:click={() => activePackFilter = pack.id}
+    >
+      <span class="chip-icon">{pack.icon}</span>
+      <span>{pack.name}</span>
+    </button>
+  {/each}
 </div>
 
 <div class="tabs">
@@ -360,7 +429,7 @@
 </div>
 
 {#if activeTab === 'divination'}
-  {#if history.length === 0}
+  {#if filteredHistory.length === 0}
     <div class="empty-state">
       <div class="empty-state-icon">📜</div>
       <div class="empty-state-text">暂无占卜记录<br/>快去抽一张卡吧
@@ -368,7 +437,7 @@
     </div>
   {:else}
     <div class="history-list">
-      {#each history as record}
+      {#each filteredHistory as record}
         <div class="history-item" on:click={() => openDivinationRecord(record)}>
           {#if record.spreadType === 'single' && record._card}
             <div class="history-symbol" style="color: var(--accent-cyan)">
@@ -381,6 +450,14 @@
                 {#if record.isReversed}
                   <span class="reversed">逆位</span>
                 {/if}
+                {#if record._pack}
+                  <span 
+                    class="pack-badge" 
+                    style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                  >
+                    {record._pack.icon} {record._pack.name}
+                  </span>
+                {/if}
               </div>
             </div>
           {:else}
@@ -391,6 +468,14 @@
                 {#each record._cards || [] as c}
                   <span style="margin-right: 4px;">{c._card?.symbol || '?'}</span>
                 {/each}
+                {#if record._pack}
+                  <span 
+                    class="pack-badge" 
+                    style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                  >
+                    {record._pack.icon} {record._pack.name}
+                  </span>
+                {/if}
               </div>
             </div>
           {/if}
@@ -409,7 +494,7 @@
     </div>
   {/if}
 {:else if activeTab === 'question-driven'}
-  {#if qdHistory.length === 0}
+  {#if filteredQdHistory.length === 0}
     <div class="empty-state">
       <div class="empty-state-icon">💬</div>
       <div class="empty-state-text">暂无问题占卜记录<br/>
@@ -420,7 +505,7 @@
     </div>
   {:else}
     <div class="history-list">
-      {#each qdHistory as record}
+      {#each filteredQdHistory as record}
         <div
           class="history-item qd-item"
           style="--theme-color: {record.spreadMeta?.color || '#00e5ff'}; --theme-glow: {(record.spreadMeta?.color || '#00e5ff') + '33'}"
@@ -447,6 +532,14 @@
               </span>
               {#if record.userInterpretation}
                 <span class="badge badge-interpreted" title="已写解读笔记">📖 已解读</span>
+              {/if}
+              {#if record._pack}
+                <span 
+                  class="pack-badge" 
+                  style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                >
+                  {record._pack.icon}
+                </span>
               {/if}
             </div>
             {#if record.questionContext?.question}
@@ -479,7 +572,7 @@
     </div>
   {/if}
 {:else if activeTab === 'spread'}
-  {#if spreadHistory.length === 0}
+  {#if filteredSpreadHistory.length === 0}
     <div class="empty-state">
       <div class="empty-state-icon">✚</div>
       <div class="empty-state-text">暂无牌阵占卜记录<br/>
@@ -490,7 +583,7 @@
     </div>
   {:else}
     <div class="history-list">
-      {#each spreadHistory as record}
+      {#each filteredSpreadHistory as record}
         <div
           class="history-item spread-item"
           style="--theme-color: {record._spread?.color || '#e040fb'}; --theme-glow: {record._spread?.glowColor || 'rgba(224, 64, 251, 0.3)'}"
@@ -503,6 +596,14 @@
             <div class="history-card-name">{record._spread?.name || '牌阵'}占卜</div>
             <div class="history-meta">
               <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record._pack}
+                <span 
+                  class="pack-badge" 
+                  style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                >
+                  {record._pack.icon}
+                </span>
+              {/if}
               {#if record.question}
                 <span class="question-preview">"{record.question}"</span>
               {/if}
@@ -528,7 +629,7 @@
     </div>
   {/if}
 {:else if activeTab === 'theme'}
-  {#if themeHistory.length === 0}
+  {#if filteredThemeHistory.length === 0}
     <div class="empty-state">
       <div class="empty-state-icon">🔮</div>
       <div class="empty-state-text">暂无主题占卜记录<br/>
@@ -539,7 +640,7 @@
     </div>
   {:else}
     <div class="history-list">
-      {#each themeHistory as record}
+      {#each filteredThemeHistory as record}
         <div
           class="history-item theme-item"
           style="--theme-color: {record._theme?.color || '#00e5ff'}; --theme-glow: {record._theme?.glowColor || 'rgba(0, 229, 255, 0.3)'}"
@@ -552,6 +653,14 @@
             <div class="history-card-name">{record._theme?.name || '主题'}占卜</div>
             <div class="history-meta">
               <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">{record._cards.length}张牌</span>
+              {#if record._pack}
+                <span 
+                  class="pack-badge" 
+                  style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                >
+                  {record._pack.icon}
+                </span>
+              {/if}
               {#if record.question}
                 <span class="question-preview">"{record.question}"</span>
               {/if}
@@ -577,7 +686,7 @@
     </div>
   {/if}
 {:else}
-  {#if dailyHistory.length === 0}
+  {#if filteredDailyHistory.length === 0}
     <div class="empty-state">
       <div class="empty-state-icon">🎐</div>
       <div class="empty-state-text">暂无每日签记录<br/>
@@ -588,7 +697,7 @@
     </div>
   {:else}
     <div class="history-list">
-      {#each dailyHistory as record}
+      {#each filteredDailyHistory as record}
         <div class="history-item daily-item" on:click={() => openDailyRecord(record)}>
           <div class="history-symbol" style="color: var(--accent-yellow)">
             {record._card?.symbol || '🎐'}
@@ -602,6 +711,14 @@
               {/if}
               {#if record.consecutiveDays}
                 <span class="consecutive-badge">🔥 {record.consecutiveDays}天</span>
+              {/if}
+              {#if record._pack}
+                <span 
+                  class="pack-badge" 
+                  style="background: {record._pack.color + '22'}; color: {record._pack.color}"
+                >
+                  {record._pack.icon}
+                </span>
               {/if}
             </div>
           </div>
@@ -764,5 +881,55 @@
     background: rgba(255, 213, 79, 0.2);
     border-color: var(--accent-yellow);
     transform: scale(1.05);
+  }
+
+  .pack-filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pack-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .pack-chip:hover {
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+  }
+
+  .pack-chip.active {
+    background: color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 15%, transparent);
+    border-color: var(--pack-color, var(--accent-cyan));
+    color: var(--pack-color, var(--accent-cyan));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--pack-color, var(--accent-cyan)) 25%, transparent);
+  }
+
+  .chip-icon {
+    font-size: 14px;
+  }
+
+  .pack-badge {
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
   }
 </style>
