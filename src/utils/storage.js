@@ -7,24 +7,9 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
-  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
   DECKS: 'cyber_divination_decks',
   THEME_ALBUMS: 'cyber_divination_theme_albums',
-  SHARE_HISTORY: 'cyber_divination_share_history',
-  ONBOARDING: 'cyber_divination_onboarding',
-  STORY_PROGRESS: 'cyber_divination_story_progress',
-  STORY_HISTORY: 'cyber_divination_story_history',
-  TEMP_EFFECTS: 'cyber_divination_temp_effects',
-  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
-  WISH_LIST: 'cyber_divination_wish_list',
-  SEASON_DATA: 'cyber_divination_season_data',
-  SEASON_TASKS: 'cyber_divination_season_tasks',
-  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events',
-  OWNED_SHOP_ITEMS: 'cyber_divination_owned_shop_items',
-  SHOP_PURCHASE_HISTORY: 'cyber_divination_shop_purchase_history',
-  EQUIPPED_SHOP_ITEMS: 'cyber_divination_equipped_shop_items',
-  ACHIEVEMENT_POINTS_SPENT: 'cyber_divination_achievement_points_spent',
-  BACKUP_AUTO_SAVES: 'cyber_divination_backup_auto_saves'
+  SHARE_HISTORY: 'cyber_divination_share_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -169,32 +154,17 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 4,
+      version: 3,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
       themeDivinationHistory: this.getThemeDivinationHistory(),
-      multiSpreadHistory: this.getMultiSpreadHistory(),
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
       settings: this.getSettings(),
-      wishList: this.getWishList(),
-      onboarding: this.getOnboarding(),
-      storyProgress: this.getStoryProgress(),
-      storyHistory: this.getStoryHistory(),
       decks: this.getDecks(),
-      themeAlbums: this.getThemeAlbums(),
-      shareHistory: this.getShareHistory(),
-      tempEffects: this.getTempEffects(),
-      permanentEffects: this.getPermanentEffects(),
-      seasonData: safeGet(STORAGE_KEYS.SEASON_DATA, {}),
-      seasonTasks: safeGet(STORAGE_KEYS.SEASON_TASKS, {}),
-      seasonHiddenEvents: safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {}),
-      ownedShopItems: this.getOwnedShopItems(),
-      shopPurchaseHistory: this.getShopPurchaseHistory(),
-      equippedShopItems: this.getEquippedShopItems(),
-      achievementPointsSpent: this.getSpentAchievementPoints()
+      themeAlbums: this.getThemeAlbums()
     }
   },
 
@@ -204,27 +174,12 @@ export const Storage = {
       if (data.drawHistory) safeSet(STORAGE_KEYS.DRAW_HISTORY, data.drawHistory)
       if (data.dailyFortuneHistory) safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, data.dailyFortuneHistory)
       if (data.themeDivinationHistory) safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, data.themeDivinationHistory)
-      if (data.multiSpreadHistory) safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, data.multiSpreadHistory)
       if (data.collection) safeSet(STORAGE_KEYS.COLLECTION, data.collection)
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
-      if (data.wishList) safeSet(STORAGE_KEYS.WISH_LIST, data.wishList)
-      if (data.onboarding) safeSet(STORAGE_KEYS.ONBOARDING, data.onboarding)
-      if (data.storyProgress) safeSet(STORAGE_KEYS.STORY_PROGRESS, data.storyProgress)
-      if (data.storyHistory) safeSet(STORAGE_KEYS.STORY_HISTORY, data.storyHistory)
       if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
       if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
-      if (data.shareHistory) safeSet(STORAGE_KEYS.SHARE_HISTORY, data.shareHistory)
-      if (data.tempEffects) safeSet(STORAGE_KEYS.TEMP_EFFECTS, data.tempEffects)
-      if (data.permanentEffects) safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, data.permanentEffects)
-      if (data.seasonData) safeSet(STORAGE_KEYS.SEASON_DATA, data.seasonData)
-      if (data.seasonTasks) safeSet(STORAGE_KEYS.SEASON_TASKS, data.seasonTasks)
-      if (data.seasonHiddenEvents) safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, data.seasonHiddenEvents)
-      if (data.ownedShopItems) safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, data.ownedShopItems)
-      if (data.shopPurchaseHistory) safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, data.shopPurchaseHistory)
-      if (data.equippedShopItems) safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, data.equippedShopItems)
-      if (data.achievementPointsSpent) safeSet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, data.achievementPointsSpent)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -326,286 +281,66 @@ export const Storage = {
     safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, [])
   },
 
-  getMultiSpreadHistory() {
-    return safeGet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
-  },
-
-  addMultiSpreadRecord(record) {
-    const history = this.getMultiSpreadHistory()
-    history.unshift({
-      ...record,
-      id: `spread_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: Date.now()
-    })
-    if (history.length > 100) {
-      history.splice(100)
-    }
-    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, history)
-    return history
-  },
-
-  clearMultiSpreadHistory() {
-    safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
-  },
-
-  getSeasonData(seasonId) {
-    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
-    return allSeasonData[seasonId] || {
-      seasonId,
-      totalPoints: 0,
-      unlockedPhases: ['phase_1'],
-      claimedRewards: [],
-      joinDate: null,
-      lastActiveDate: null
-    }
-  },
-
-  updateSeasonData(seasonId, updates) {
-    const allSeasonData = safeGet(STORAGE_KEYS.SEASON_DATA, {})
-    const currentData = allSeasonData[seasonId] || {
-      seasonId,
-      totalPoints: 0,
-      unlockedPhases: ['phase_1'],
-      claimedRewards: [],
-      joinDate: null,
-      lastActiveDate: null
-    }
-    
-    if (!currentData.joinDate) {
-      currentData.joinDate = Date.now()
-    }
-    currentData.lastActiveDate = Date.now()
-    
-    allSeasonData[seasonId] = { ...currentData, ...updates }
-    safeSet(STORAGE_KEYS.SEASON_DATA, allSeasonData)
-    return allSeasonData[seasonId]
-  },
-
-  addSeasonPoints(seasonId, points) {
-    const seasonData = this.getSeasonData(seasonId)
-    const newPoints = (seasonData.totalPoints || 0) + points
-    return this.updateSeasonData(seasonId, { totalPoints: newPoints })
-  },
-
-  unlockPhase(seasonId, phaseId) {
-    const seasonData = this.getSeasonData(seasonId)
-    const unlockedPhases = [...new Set([...(seasonData.unlockedPhases || []), phaseId])]
-    return this.updateSeasonData(seasonId, { unlockedPhases })
-  },
-
-  claimPhaseReward(seasonId, rewardId) {
-    const seasonData = this.getSeasonData(seasonId)
-    const claimedRewards = [...new Set([...(seasonData.claimedRewards || []), rewardId])]
-    return this.updateSeasonData(seasonId, { claimedRewards })
-  },
-
-  getSeasonTasks(seasonId) {
-    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
-    return allTasks[seasonId] || {}
-  },
-
-  updateSeasonTaskProgress(seasonId, taskId, progress) {
-    const allTasks = safeGet(STORAGE_KEYS.SEASON_TASKS, {})
-    const seasonTasks = allTasks[seasonId] || {}
-    const currentProgress = seasonTasks[taskId] || { completed: false, current: 0, claimed: false, completedAt: null }
-    
-    seasonTasks[taskId] = { ...currentProgress, ...progress }
-    allTasks[seasonId] = seasonTasks
-    safeSet(STORAGE_KEYS.SEASON_TASKS, allTasks)
-    return seasonTasks[taskId]
-  },
-
-  completeSeasonTask(seasonId, taskId) {
-    return this.updateSeasonTaskProgress(seasonId, taskId, {
-      completed: true,
-      completedAt: Date.now()
-    })
-  },
-
-  claimSeasonTaskReward(seasonId, taskId) {
-    return this.updateSeasonTaskProgress(seasonId, taskId, {
-      claimed: true,
-      claimedAt: Date.now()
-    })
-  },
-
-  getSeasonHiddenEvents(seasonId) {
-    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
-    return allEvents[seasonId] || []
-  },
-
-  triggerSeasonHiddenEvent(seasonId, eventId) {
-    const allEvents = safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
-    const seasonEvents = allEvents[seasonId] || []
-    
-    if (!seasonEvents.includes(eventId)) {
-      seasonEvents.push(eventId)
-      allEvents[seasonId] = seasonEvents
-      safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, allEvents)
-      return true
-    }
-    return false
-  },
-
-  getWishList() {
-    return safeGet(STORAGE_KEYS.WISH_LIST, [])
-  },
-
-  addWish(wishData) {
-    const wishes = this.getWishList()
-    const wish = {
-      id: `wish_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      status: 'active',
-      linkedDraws: [],
-      reviews: [],
-      ...wishData
-    }
-    wishes.unshift(wish)
-    if (wishes.length > 100) wishes.splice(100)
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wish
-  },
-
-  updateWish(wishId, updates) {
-    const wishes = this.getWishList()
-    const idx = wishes.findIndex(w => w.id === wishId)
-    if (idx === -1) return null
-    wishes[idx] = { ...wishes[idx], ...updates, updatedAt: Date.now() }
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wishes[idx]
-  },
-
-  deleteWish(wishId) {
-    const wishes = this.getWishList()
-    const filtered = wishes.filter(w => w.id !== wishId)
-    safeSet(STORAGE_KEYS.WISH_LIST, filtered)
-    return filtered
-  },
-
-  getWishById(wishId) {
-    const wishes = this.getWishList()
-    return wishes.find(w => w.id === wishId) || null
-  },
-
-  linkDrawToWish(wishId, drawRecord) {
-    const wishes = this.getWishList()
-    const idx = wishes.findIndex(w => w.id === wishId)
-    if (idx === -1) return null
-    if (!wishes[idx].linkedDraws) wishes[idx].linkedDraws = []
-    wishes[idx].linkedDraws.push({ ...drawRecord, linkedAt: Date.now() })
-    wishes[idx].updatedAt = Date.now()
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wishes[idx]
-  },
-
-  addReviewToWish(wishId, review) {
-    const wishes = this.getWishList()
-    const idx = wishes.findIndex(w => w.id === wishId)
-    if (idx === -1) return null
-    if (!wishes[idx].reviews) wishes[idx].reviews = []
-    wishes[idx].reviews.push({ ...review, createdAt: Date.now() })
-    wishes[idx].updatedAt = Date.now()
-    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
-    return wishes[idx]
-  },
-
-  getOnboarding() {
-    return safeGet(STORAGE_KEYS.ONBOARDING, {
-      startedAt: null,
-      completed: false,
-      completedAt: null,
-      currentStep: 0,
-      firstDrawHiddenEvent: null,
-      worldLoreViewed: false
-    })
-  },
-
-  updateOnboarding(updates) {
-    const onboarding = this.getOnboarding()
-    const updated = { ...onboarding, ...updates }
-    safeSet(STORAGE_KEYS.ONBOARDING, updated)
-    return updated
-  },
-
-  completeOnboarding() {
-    const updated = {
-      startedAt: this.getOnboarding().startedAt || Date.now(),
-      completed: true,
-      completedAt: Date.now(),
-      currentStep: TOTAL_ONBOARDING_STEPS || 5,
-      firstDrawHiddenEvent: this.getOnboarding().firstDrawHiddenEvent,
-      worldLoreViewed: true
-    }
-    safeSet(STORAGE_KEYS.ONBOARDING, updated)
-    return updated
-  },
-
-  resetOnboarding() {
-    safeSet(STORAGE_KEYS.ONBOARDING, {
-      startedAt: null,
-      completed: false,
-      completedAt: null,
-      currentStep: 0,
-      firstDrawHiddenEvent: null,
-      worldLoreViewed: false
-    })
-  },
-
-  getStoryProgress() {
-    return safeGet(STORAGE_KEYS.STORY_PROGRESS, {})
-  },
-
-  updateStoryProgress(storyId, updates) {
-    const progress = this.getStoryProgress()
-    if (!progress[storyId]) {
-      progress[storyId] = {
-        storyId,
-        status: 'in_progress',
-        startedAt: Date.now(),
-        currentChapter: null,
-        choices: [],
-        completedAt: null
-      }
-    }
-    progress[storyId] = { ...progress[storyId], ...updates }
-    safeSet(STORAGE_KEYS.STORY_PROGRESS, progress)
-    return progress[storyId]
-  },
-
-  getStoryHistory() {
-    return safeGet(STORAGE_KEYS.STORY_HISTORY, [])
-  },
-
-  addStoryHistoryRecord(record) {
-    const history = this.getStoryHistory()
-    history.unshift({
-      ...record,
-      id: `story_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: Date.now()
-    })
-    if (history.length > 200) history.splice(200)
-    safeSet(STORAGE_KEYS.STORY_HISTORY, history)
-    return history
-  },
-
   getDecks() {
     return safeGet(STORAGE_KEYS.DECKS, [])
   },
 
-  saveDecks(decks) {
+  saveDeck(deck) {
+    const decks = this.getDecks()
+    const existingIndex = decks.findIndex(d => d.id === deck.id)
+    if (existingIndex >= 0) {
+      decks[existingIndex] = { ...deck, updatedAt: Date.now() }
+    } else {
+      decks.unshift({
+        ...deck,
+        id: deck.id || `deck_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+    }
     safeSet(STORAGE_KEYS.DECKS, decks)
     return decks
   },
 
-  getThemeAlbums() {
-    return safeGet(STORAGE_KEYS.THEME_ALBUMS, {})
+  deleteDeck(deckId) {
+    const decks = this.getDecks()
+    const filtered = decks.filter(d => d.id !== deckId)
+    safeSet(STORAGE_KEYS.DECKS, filtered)
+    return filtered
   },
 
-  saveThemeAlbums(albums) {
+  getThemeAlbums() {
+    return safeGet(STORAGE_KEYS.THEME_ALBUMS, [])
+  },
+
+  saveThemeAlbum(album) {
+    const albums = this.getThemeAlbums()
+    const existingIndex = albums.findIndex(a => a.id === album.id)
+    if (existingIndex >= 0) {
+      albums[existingIndex] = { ...album, updatedAt: Date.now() }
+    } else {
+      albums.unshift({
+        ...album,
+        id: album.id || `album_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+    }
     safeSet(STORAGE_KEYS.THEME_ALBUMS, albums)
     return albums
+  },
+
+  deleteThemeAlbum(albumId) {
+    const albums = this.getThemeAlbums()
+    const filtered = albums.filter(a => a.id !== albumId)
+    safeSet(STORAGE_KEYS.THEME_ALBUMS, filtered)
+    return filtered
+  },
+
+  resetAll() {
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key)
+    })
   },
 
   getShareHistory() {
@@ -613,113 +348,24 @@ export const Storage = {
   },
 
   setShareHistory(history) {
+    return safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
+  },
+
+  addShareRecord(record) {
+    const history = this.getShareHistory()
+    history.unshift({
+      ...record,
+      id: `share_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      sharedAt: Date.now()
+    })
+    if (history.length > 50) {
+      history.splice(50)
+    }
     safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
     return history
   },
 
-  getTempEffects() {
-    return safeGet(STORAGE_KEYS.TEMP_EFFECTS, {})
-  },
-
-  setTempEffects(effects) {
-    safeSet(STORAGE_KEYS.TEMP_EFFECTS, effects)
-    return effects
-  },
-
-  getPermanentEffects() {
-    return safeGet(STORAGE_KEYS.PERMANENT_EFFECTS, {})
-  },
-
-  setPermanentEffects(effects) {
-    safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
-    return effects
-  },
-
-  getOwnedShopItems() {
-    return safeGet(STORAGE_KEYS.OWNED_SHOP_ITEMS, {})
-  },
-
-  addOwnedShopItem(itemId) {
-    const owned = this.getOwnedShopItems()
-    if (!owned[itemId]) {
-      owned[itemId] = {
-        itemId,
-        purchasedAt: Date.now()
-      }
-      safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, owned)
-      return true
-    }
-    return false
-  },
-
-  hasShopItem(itemId) {
-    const owned = this.getOwnedShopItems()
-    return !!owned[itemId]
-  },
-
-  getShopPurchaseHistory() {
-    return safeGet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, [])
-  },
-
-  addShopPurchaseRecord(record) {
-    const history = this.getShopPurchaseHistory()
-    history.unshift({
-      ...record,
-      id: `shop_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-    })
-    if (history.length > 500) {
-      history.splice(500)
-    }
-    safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, history)
-    return history
-  },
-
-  getEquippedShopItems() {
-    return safeGet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, {
-      skin: null,
-      card_back: null,
-      animation: null,
-      card_border: null,
-      special_title: null
-    })
-  },
-
-  equipShopItem(type, itemId) {
-    const equipped = this.getEquippedShopItems()
-    equipped[type] = itemId
-    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
-    return equipped
-  },
-
-  unequipShopItem(type) {
-    const equipped = this.getEquippedShopItems()
-    equipped[type] = null
-    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
-    return equipped
-  },
-
-  getSpentAchievementPoints() {
-    return safeGet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, 0)
-  },
-
-  spendAchievementPoints(amount) {
-    const currentSpent = this.getSpentAchievementPoints()
-    safeSet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, currentSpent + amount)
-    return true
-  },
-
-  getAutoBackups() {
-    return safeGet(STORAGE_KEYS.BACKUP_AUTO_SAVES, [])
-  },
-
-  saveAutoBackups(backups) {
-    safeSet(STORAGE_KEYS.BACKUP_AUTO_SAVES, backups)
-    return backups
-  },
-
-  resetAll() {
-    Object.values(STORAGE_KEYS).forEach(key => {
-      localStorage.removeItem(key)
-    })
+  clearShareHistory() {
+    safeSet(STORAGE_KEYS.SHARE_HISTORY, [])
   }
 }

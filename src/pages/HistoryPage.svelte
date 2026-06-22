@@ -502,10 +502,6 @@
     spreadName={currentShareData.spreadName}
     question={currentShareData.question}
     timestamp={currentShareData.timestamp}
-    recordType={currentShareData.recordType}
-    consecutiveDays={currentShareData.consecutiveDays}
-    spreadId={currentShareData.spreadId}
-    spreadConfig={currentShareData.spreadConfig}
     onClose={closeShare}
   />
 {/if}

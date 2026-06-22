@@ -247,9 +247,21 @@ export const BackupManager = {
     const mergedSettings = syncSettings(importedSettings, currentSettings)
     data.settings = mergedSettings
 
-    this.autoBackup('pre_import')
+    const preBackupResult = this.autoBackup('pre_import')
+    if (!preBackupResult.success) {
+      return {
+        success: false,
+        error: `导入前自动备份失败：${preBackupResult.error}`,
+        phase: 'pre_backup'
+      }
+    }
 
     Storage.importAll(data)
+
+    const postVerify = this.verifyAutoBackup(preBackupResult.backup.id)
+    if (!postVerify.valid) {
+      console.warn('导入前备份的后置校验失败，但导入已完成', postVerify.error)
+    }
 
     return {
       success: true,
@@ -257,12 +269,14 @@ export const BackupManager = {
       migratedFrom: data._meta.migratedFrom,
       version: data._meta.version,
       settingsMerged: true,
-      backupCreated: true
+      backupCreated: true,
+      preBackupId: preBackupResult.backup.id,
+      preBackupVerified: preBackupResult.verified
     }
   },
 
   autoBackup(reason = 'auto') {
-    const backups = Storage.getAutoBackups()
+    const backupsBefore = Storage.getAutoBackups()
 
     const rawData = Storage.exportAll()
     const payload = {}
@@ -290,17 +304,98 @@ export const BackupManager = {
       ...payload
     }
 
-    backups.unshift(backup)
-    if (backups.length > MAX_AUTO_BACKUPS) {
-      backups.splice(MAX_AUTO_BACKUPS)
+    const newBackups = [backup, ...backupsBefore]
+    if (newBackups.length > MAX_AUTO_BACKUPS) {
+      newBackups.splice(MAX_AUTO_BACKUPS)
     }
 
-    Storage.saveAutoBackups(backups)
-    return backup
+    Storage.saveAutoBackups(newBackups)
+
+    const verifyResult = this.verifyAutoBackup(backup.id)
+    if (!verifyResult.valid) {
+      Storage.saveAutoBackups(backupsBefore)
+      return {
+        success: false,
+        error: `自动备份写入后校验失败：${verifyResult.error}`,
+        rolledBack: true
+      }
+    }
+
+    return {
+      success: true,
+      backup,
+      verified: true
+    }
   },
 
   listAutoBackups() {
     return Storage.getAutoBackups()
+  },
+
+  verifyAutoBackup(backupId) {
+    const backups = Storage.getAutoBackups()
+    const backup = backups.find(b => b.id === backupId)
+
+    if (!backup) {
+      return { valid: false, error: '备份不存在' }
+    }
+
+    if (!backup._meta || !backup._meta.checksum) {
+      return { valid: false, error: '备份缺少校验和元数据' }
+    }
+
+    const payload = {}
+    for (const key of BACKUP_FIELDS) {
+      if (backup[key] !== undefined) {
+        payload[key] = backup[key]
+      }
+    }
+
+    const expectedChecksum = computeChecksum(payload)
+    if (backup._meta.checksum !== expectedChecksum) {
+      return { valid: false, error: `校验和不匹配（期望 ${expectedChecksum}，实际 ${backup._meta.checksum}）` }
+    }
+
+    if (backup.size !== undefined) {
+      const actualSize = JSON.stringify(payload).length
+      if (backup.size !== actualSize) {
+        return { valid: false, error: `大小不匹配（期望 ${backup.size}，实际 ${actualSize}）` }
+      }
+    }
+
+    return {
+      valid: true,
+      backupId: backup.id,
+      reason: backup.reason,
+      version: backup._meta.version,
+      size: backup.size,
+      createdAt: backup.createdAt
+    }
+  },
+
+  verifyAllAutoBackups() {
+    const backups = Storage.getAutoBackups()
+    const results = []
+    let validCount = 0
+
+    for (const backup of backups) {
+      const result = this.verifyAutoBackup(backup.id)
+      results.push({
+        id: backup.id,
+        reason: backup.reason,
+        createdAt: backup.createdAt,
+        valid: result.valid,
+        error: result.error
+      })
+      if (result.valid) validCount++
+    }
+
+    return {
+      total: backups.length,
+      valid: validCount,
+      invalid: backups.length - validCount,
+      details: results
+    }
   },
 
   recoverFromBackup(backupId) {
@@ -308,27 +403,34 @@ export const BackupManager = {
     const backup = backups.find(b => b.id === backupId)
 
     if (!backup) {
-      return { success: false, error: '未找到指定的自动备份' }
+      return { success: false, error: '未找到指定的自动备份', phase: 'find' }
     }
 
-    if (backup._meta?.checksum) {
-      const payload = {}
-      for (const key of BACKUP_FIELDS) {
-        if (backup[key] !== undefined) {
-          payload[key] = backup[key]
-        }
-      }
-      const expectedChecksum = computeChecksum(payload)
-      if (backup._meta.checksum !== expectedChecksum) {
-        return { success: false, error: '自动备份校验失败，数据可能已损坏' }
-      }
+    const targetVerify = this.verifyAutoBackup(backupId)
+    if (!targetVerify.valid) {
+      return { success: false, error: `目标备份校验失败：${targetVerify.error}`, phase: 'target_integrity' }
     }
 
-    this.autoBackup('pre_recovery')
+    const preBackupResult = this.autoBackup('pre_recovery')
+    if (!preBackupResult.success) {
+      return { success: false, error: `恢复前自动备份失败：${preBackupResult.error}`, phase: 'pre_backup' }
+    }
 
     Storage.importAll(backup)
 
-    return { success: true, recoveredAt: Date.now(), backupCreatedAt: backup.createdAt, reason: backup.reason }
+    const postVerify = this.verifyAutoBackup(preBackupResult.backup.id)
+    if (!postVerify.valid) {
+      console.warn('恢复前备份的后置校验失败，但恢复已完成', postVerify.error)
+    }
+
+    return {
+      success: true,
+      recoveredAt: Date.now(),
+      backupCreatedAt: backup.createdAt,
+      reason: backup.reason,
+      preBackupId: preBackupResult.backup.id,
+      preBackupVerified: preBackupResult.verified
+    }
   },
 
   deleteAutoBackup(backupId) {

@@ -36,6 +36,8 @@
   let recoveryTargetId = null
   let recoverySuccess = false
   let recoveryResult = null
+  let verifyAllResult = null
+  let isVerifying = false
 
   let verifyResult = null
   let verifySummary = null
@@ -275,10 +277,17 @@
   function createManualBackup() {
     isProcessing = true
     try {
-      BackupManager.autoBackup('manual')
+      const result = BackupManager.autoBackup('manual')
+      if (!result.success) {
+        importErrorMessage = result.error
+        showImportError = true
+        setTimeout(() => { showImportError = false }, 5000)
+      }
       loadBackupData()
     } catch (e) {
-      console.error('Auto backup failed:', e)
+      importErrorMessage = e.message || '创建备份失败'
+      showImportError = true
+      setTimeout(() => { showImportError = false }, 5000)
     } finally {
       isProcessing = false
     }
@@ -325,6 +334,29 @@
   function deleteBackup(backupId) {
     BackupManager.deleteAutoBackup(backupId)
     loadBackupData()
+    verifyAllResult = null
+  }
+
+  function runVerifyAll() {
+    isVerifying = true
+    verifyAllResult = null
+    setTimeout(() => {
+      try {
+        verifyAllResult = BackupManager.verifyAllAutoBackups()
+      } catch (e) {
+        importErrorMessage = e.message || '校验失败'
+        showImportError = true
+        setTimeout(() => { showImportError = false }, 5000)
+      } finally {
+        isVerifying = false
+      }
+    }, 300)
+  }
+
+  function getBackupVerifyStatus(backupId) {
+    if (!verifyAllResult) return null
+    const detail = verifyAllResult.details.find(d => d.id === backupId)
+    return detail || null
   }
 
   onMount(() => {
@@ -454,7 +486,24 @@
     </button>
   </div>
 
-  <div class="section-title">备份列表</div>
+  <div class="section-title">
+    备份列表
+    <button
+      class="btn btn-sm btn-verify-all"
+      on:click={runVerifyAll}
+      disabled={isVerifying || autoBackups.length === 0}
+    >
+      {isVerifying ? '校验中...' : '🔍 校验全部'}
+    </button>
+  </div>
+
+  {#if verifyAllResult}
+    <div class="verify-summary {verifyAllResult.invalid > 0 ? 'has-errors' : 'all-good'}">
+      <span>共 {verifyAllResult.total} 个备份</span>
+      <span class="verify-valid">✓ 有效 {verifyAllResult.valid}</span>
+      <span class="verify-invalid">✗ 无效 {verifyAllResult.invalid}</span>
+    </div>
+  {/if}
 
   {#if autoBackups.length === 0}
     <div class="empty-state">
@@ -465,10 +514,18 @@
   {:else}
     <div class="backup-list">
       {#each autoBackups as backup, i}
-        <div class="backup-item">
+        {@const verifyStatus = getBackupVerifyStatus(backup.id)}
+        <div class="backup-item {verifyStatus && !verifyStatus.valid ? 'backup-invalid' : ''}">
           <div class="backup-item-header">
             <span class="backup-reason">
               {getReasonIcon(backup.reason)} {getReasonLabel(backup.reason)}
+              {#if verifyStatus}
+                {#if verifyStatus.valid}
+                  <span class="verify-badge verify-ok" title="校验通过">✓</span>
+                {:else}
+                  <span class="verify-badge verify-bad" title="校验失败">✗</span>
+                {/if}
+              {/if}
             </span>
             <span class="backup-time">{formatDate(backup.createdAt)}</span>
           </div>
@@ -477,11 +534,16 @@
             <span>{formatSize(backup.size || 0)}</span>
             <span>校验 {backup.checksum?.slice(0, 8) || '—'}</span>
           </div>
+          {#if verifyStatus && !verifyStatus.valid}
+            <div class="backup-error-detail">
+              ⚠ {verifyStatus.error}
+            </div>
+          {/if}
           <div class="backup-item-actions">
             <button
               class="btn btn-sm btn-recover"
               on:click={() => triggerRecovery(backup.id)}
-              disabled={isProcessing}
+              disabled={isProcessing || (verifyStatus && !verifyStatus.valid)}
             >
               🔙 恢复
             </button>
@@ -1146,6 +1208,100 @@
     background: rgba(255, 82, 82, 0.1);
     border-radius: 6px;
     border-left: 3px solid var(--accent-red);
+  }
+
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .btn-verify-all {
+    border-color: #69f0ae;
+    color: #69f0ae;
+    font-size: 11px;
+    padding: 2px 10px;
+  }
+
+  .btn-verify-all:hover {
+    background: rgba(105, 240, 174, 0.15);
+  }
+
+  .btn-verify-all:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .verify-summary {
+    display: flex;
+    gap: 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+
+  .verify-summary.all-good {
+    background: rgba(105, 240, 174, 0.1);
+    border: 1px solid rgba(105, 240, 174, 0.3);
+    color: var(--text-secondary);
+  }
+
+  .verify-summary.has-errors {
+    background: rgba(255, 82, 82, 0.1);
+    border: 1px solid rgba(255, 82, 82, 0.3);
+    color: var(--text-secondary);
+  }
+
+  .verify-valid {
+    color: #69f0ae;
+  }
+
+  .verify-invalid {
+    color: var(--accent-red);
+  }
+
+  .verify-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .verify-badge.verify-ok {
+    background: rgba(105, 240, 174, 0.2);
+    color: #69f0ae;
+    border: 1px solid #69f0ae;
+  }
+
+  .verify-badge.verify-bad {
+    background: rgba(255, 82, 82, 0.2);
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+  }
+
+  .backup-item.backup-invalid {
+    border-color: rgba(255, 82, 82, 0.4);
+    background: linear-gradient(135deg, rgba(255,82,82,0.05), var(--bg-card));
+  }
+
+  .backup-error-detail {
+    padding: 8px 10px;
+    background: rgba(255, 82, 82, 0.1);
+    border: 1px solid rgba(255, 82, 82, 0.3);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--accent-red);
+    font-family: var(--font-mono);
+    margin: 8px 0;
+    line-height: 1.5;
   }
 
   @media (max-width: 400px) {
