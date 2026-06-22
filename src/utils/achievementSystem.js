@@ -21,6 +21,7 @@ const unlockedStore = writable({})
 const notifyStore = writable(null)
 const titlesStore = writable([])
 const pointsStore = writable(0)
+const availablePointsStore = writable(0)
 
 let initialized = false
 let notifyTimeout = null
@@ -38,8 +39,11 @@ function init() {
 
 function updateDerivedData(unlocked) {
   const unlockedIds = Object.keys(unlocked)
+  const totalPoints = getTotalPoints(unlockedIds)
+  const spentPoints = Storage.getSpentAchievementPoints()
   titlesStore.set(getUnlockedTitles(unlockedIds))
-  pointsStore.set(getTotalPoints(unlockedIds))
+  pointsStore.set(totalPoints)
+  availablePointsStore.set(totalPoints - spentPoints)
 }
 
 export const unlockedAchievements = {
@@ -67,6 +71,13 @@ export const achievementPoints = {
   subscribe: (run) => {
     init()
     return pointsStore.subscribe(run)
+  }
+}
+
+export const availableAchievementPoints = {
+  subscribe: (run) => {
+    init()
+    return availablePointsStore.subscribe(run)
   }
 }
 

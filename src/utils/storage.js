@@ -19,7 +19,11 @@ const STORAGE_KEYS = {
   WISH_LIST: 'cyber_divination_wish_list',
   SEASON_DATA: 'cyber_divination_season_data',
   SEASON_TASKS: 'cyber_divination_season_tasks',
-  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events'
+  SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events',
+  OWNED_SHOP_ITEMS: 'cyber_divination_owned_shop_items',
+  SHOP_PURCHASE_HISTORY: 'cyber_divination_shop_purchase_history',
+  EQUIPPED_SHOP_ITEMS: 'cyber_divination_equipped_shop_items',
+  ACHIEVEMENT_POINTS_SPENT: 'cyber_divination_achievement_points_spent'
 }
 
 function safeGet(key, defaultValue) {
@@ -185,7 +189,11 @@ export const Storage = {
       permanentEffects: this.getPermanentEffects(),
       seasonData: safeGet(STORAGE_KEYS.SEASON_DATA, {}),
       seasonTasks: safeGet(STORAGE_KEYS.SEASON_TASKS, {}),
-      seasonHiddenEvents: safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
+      seasonHiddenEvents: safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {}),
+      ownedShopItems: this.getOwnedShopItems(),
+      shopPurchaseHistory: this.getShopPurchaseHistory(),
+      equippedShopItems: this.getEquippedShopItems(),
+      achievementPointsSpent: this.getSpentAchievementPoints()
     }
   },
 
@@ -212,6 +220,10 @@ export const Storage = {
       if (data.seasonData) safeSet(STORAGE_KEYS.SEASON_DATA, data.seasonData)
       if (data.seasonTasks) safeSet(STORAGE_KEYS.SEASON_TASKS, data.seasonTasks)
       if (data.seasonHiddenEvents) safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, data.seasonHiddenEvents)
+      if (data.ownedShopItems) safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, data.ownedShopItems)
+      if (data.shopPurchaseHistory) safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, data.shopPurchaseHistory)
+      if (data.equippedShopItems) safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, data.equippedShopItems)
+      if (data.achievementPointsSpent) safeSet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, data.achievementPointsSpent)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -620,6 +632,79 @@ export const Storage = {
   setPermanentEffects(effects) {
     safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
     return effects
+  },
+
+  getOwnedShopItems() {
+    return safeGet(STORAGE_KEYS.OWNED_SHOP_ITEMS, {})
+  },
+
+  addOwnedShopItem(itemId) {
+    const owned = this.getOwnedShopItems()
+    if (!owned[itemId]) {
+      owned[itemId] = {
+        itemId,
+        purchasedAt: Date.now()
+      }
+      safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, owned)
+      return true
+    }
+    return false
+  },
+
+  hasShopItem(itemId) {
+    const owned = this.getOwnedShopItems()
+    return !!owned[itemId]
+  },
+
+  getShopPurchaseHistory() {
+    return safeGet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, [])
+  },
+
+  addShopPurchaseRecord(record) {
+    const history = this.getShopPurchaseHistory()
+    history.unshift({
+      ...record,
+      id: `shop_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+    })
+    if (history.length > 500) {
+      history.splice(500)
+    }
+    safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, history)
+    return history
+  },
+
+  getEquippedShopItems() {
+    return safeGet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, {
+      skin: null,
+      card_back: null,
+      animation: null,
+      card_border: null,
+      special_title: null
+    })
+  },
+
+  equipShopItem(type, itemId) {
+    const equipped = this.getEquippedShopItems()
+    equipped[type] = itemId
+    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
+    return equipped
+  },
+
+  unequipShopItem(type) {
+    const equipped = this.getEquippedShopItems()
+    equipped[type] = null
+    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
+    return equipped
+  },
+
+  getSpentAchievementPoints() {
+    return safeGet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, 0)
+  },
+
+  spendAchievementPoints(amount) {
+    const currentSpent = this.getSpentAchievementPoints()
+    safeSet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, currentSpent + amount)
+    return true
   },
 
   resetAll() {

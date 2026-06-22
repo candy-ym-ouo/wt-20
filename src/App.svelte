@@ -20,6 +20,7 @@
   import ThemeAlbumPage from './pages/ThemeAlbumPage.svelte'
   import DeckEditorPage from './pages/DeckEditorPage.svelte'
   import RelationGraphPage from './pages/RelationGraphPage.svelte'
+  import FateShopPage from './pages/FateShopPage.svelte'
   import HiddenEventModal from './components/HiddenEventModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
   import SeasonNotify from './components/SeasonNotify.svelte'
@@ -47,6 +48,7 @@
     { id: 'relation-graph', icon: '🕸️', label: '关系谱' },
     { id: 'profile', icon: '📊', label: '档案' },
     { id: 'achievements', icon: '🏆', label: '成就' },
+    { id: 'fate-shop', icon: '🛒', label: '商店' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
   ]
@@ -121,6 +123,8 @@
       <RelationGraphPage />
     {:else if currentPage === 'achievements'}
       <AchievementsPage />
+    {:else if currentPage === 'fate-shop'}
+      <FateShopPage />
     {:else if currentPage === 'history'}
       <HistoryPage initialTab={historyInitialTab} />
     {:else if currentPage === 'archive'}
