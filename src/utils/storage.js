@@ -7,6 +7,10 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE: 'cyber_divination_daily_fortune',
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
+  COLLECTION_MAP: 'cyber_divination_collection_map',
+  OWNED_SHOP_ITEMS: 'cyber_divination_owned_items',
+  SHOP_PURCHASE_HISTORY: 'cyber_divination_shop_history',
+  EQUIPPED_SHOP_ITEMS: 'cyber_divination_equipped_items',
   DECKS: 'cyber_divination_decks',
   THEME_ALBUMS: 'cyber_divination_theme_albums',
   SHARE_HISTORY: 'cyber_divination_share_history',
@@ -170,12 +174,16 @@ export const Storage = {
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
       themeDivinationHistory: this.getThemeDivinationHistory(),
+      collectionMap: this.getCollectionMap(),
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
       settings: this.getSettings(),
       decks: this.getDecks(),
       themeAlbums: this.getThemeAlbums(),
+      ownedShopItems: this.getOwnedShopItems(),
+      shopPurchaseHistory: this.getShopPurchaseHistory(),
+      equippedShopItems: this.getEquippedShopItems(),
       mysteriousVisitor: this.getMysteriousVisitor(),
       visitorCardRecords: this.getVisitorCardRecords(),
       storyProgress: this.getStoryProgress(),
@@ -196,12 +204,16 @@ export const Storage = {
       if (data.drawHistory) safeSet(STORAGE_KEYS.DRAW_HISTORY, data.drawHistory)
       if (data.dailyFortuneHistory) safeSet(STORAGE_KEYS.DAILY_FORTUNE_HISTORY, data.dailyFortuneHistory)
       if (data.themeDivinationHistory) safeSet(STORAGE_KEYS.THEME_DIVINATION_HISTORY, data.themeDivinationHistory)
+      if (data.collectionMap) safeSet(STORAGE_KEYS.COLLECTION_MAP, data.collectionMap)
       if (data.collection) safeSet(STORAGE_KEYS.COLLECTION, data.collection)
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
       if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
       if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
+      if (data.ownedShopItems) safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, data.ownedShopItems)
+      if (data.shopPurchaseHistory) safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, data.shopPurchaseHistory)
+      if (data.equippedShopItems) safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, data.equippedShopItems)
       if (data.mysteriousVisitor) safeSet(STORAGE_KEYS.MYSTERIOUS_VISITOR, data.mysteriousVisitor)
       if (data.visitorCardRecords) safeSet(STORAGE_KEYS.VISITOR_CARD_RECORDS, data.visitorCardRecords)
       if (data.storyProgress) safeSet(STORAGE_KEYS.STORY_PROGRESS, data.storyProgress)
@@ -429,6 +441,121 @@ export const Storage = {
     const filtered = albums.filter(a => a.id !== albumId)
     safeSet(STORAGE_KEYS.THEME_ALBUMS, filtered)
     return filtered
+  },
+
+  getCollectionMap() {
+    return safeGet(STORAGE_KEYS.COLLECTION_MAP, {
+      completedNodes: [],
+      claimedRewards: [],
+      lastViewedNode: null,
+      explorationStartTime: Date.now()
+    })
+  },
+
+  saveCollectionMap(mapData) {
+    safeSet(STORAGE_KEYS.COLLECTION_MAP, mapData)
+    return mapData
+  },
+
+  completeMapNode(nodeId) {
+    const mapData = this.getCollectionMap()
+    if (!mapData.completedNodes.includes(nodeId)) {
+      mapData.completedNodes.push(nodeId)
+      mapData.lastViewedNode = nodeId
+    }
+    safeSet(STORAGE_KEYS.COLLECTION_MAP, mapData)
+    return mapData
+  },
+
+  claimMapReward(nodeId) {
+    const mapData = this.getCollectionMap()
+    if (!mapData.claimedRewards.includes(nodeId)) {
+      mapData.claimedRewards.push(nodeId)
+    }
+    safeSet(STORAGE_KEYS.COLLECTION_MAP, mapData)
+    return mapData
+  },
+
+  hasCompletedMapNode(nodeId) {
+    const mapData = this.getCollectionMap()
+    return mapData.completedNodes.includes(nodeId)
+  },
+
+  hasClaimedMapReward(nodeId) {
+    const mapData = this.getCollectionMap()
+    return mapData.claimedRewards.includes(nodeId)
+  },
+
+  resetCollectionMap() {
+    safeSet(STORAGE_KEYS.COLLECTION_MAP, {
+      completedNodes: [],
+      claimedRewards: [],
+      lastViewedNode: null,
+      explorationStartTime: Date.now()
+    })
+  },
+
+  getOwnedShopItems() {
+    return safeGet(STORAGE_KEYS.OWNED_SHOP_ITEMS, {})
+  },
+
+  addOwnedShopItem(itemId) {
+    const items = this.getOwnedShopItems()
+    if (!items[itemId]) {
+      items[itemId] = {
+        purchasedAt: Date.now(),
+        id: itemId
+      }
+    }
+    safeSet(STORAGE_KEYS.OWNED_SHOP_ITEMS, items)
+    return items
+  },
+
+  hasOwnedShopItem(itemId) {
+    const items = this.getOwnedShopItems()
+    return !!items[itemId]
+  },
+
+  getShopPurchaseHistory() {
+    return safeGet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, [])
+  },
+
+  addShopPurchaseRecord(record) {
+    const history = this.getShopPurchaseHistory()
+    history.unshift({
+      ...record,
+      id: `shop_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      purchasedAt: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.SHOP_PURCHASE_HISTORY, history)
+    return history
+  },
+
+  getEquippedShopItems() {
+    return safeGet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, {
+      skin: null,
+      card_back: null,
+      animation: null,
+      card_border: null,
+      special_title: null
+    })
+  },
+
+  equipShopItem(type, itemId) {
+    const equipped = this.getEquippedShopItems()
+    equipped[type] = itemId
+    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
+    return equipped
+  },
+
+  unequipShopItem(type) {
+    const equipped = this.getEquippedShopItems()
+    equipped[type] = null
+    safeSet(STORAGE_KEYS.EQUIPPED_SHOP_ITEMS, equipped)
+    return equipped
   },
 
   resetAll() {

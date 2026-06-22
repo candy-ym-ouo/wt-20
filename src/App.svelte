@@ -7,6 +7,7 @@
   import { MYSTERIOUS_VISITORS } from './data/mysteriousVisitor.js'
   import DrawPage from './pages/DrawPage.svelte'
   import CollectionPage from './pages/CollectionPage.svelte'
+  import CollectionMapPage from './pages/CollectionMapPage.svelte'
   import HistoryPage from './pages/HistoryPage.svelte'
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
@@ -32,6 +33,7 @@
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'weekly', icon: '📊', label: '周报' },
     { id: 'collection', icon: '📚', label: '收藏' },
+    { id: 'collection-map', icon: '🗺️', label: '联动地图' },
     { id: 'achievements', icon: '🏆', label: '成就' },
     { id: 'review', icon: '📈', label: '回顾' },
     { id: 'history', icon: '📜', label: '历史' },
@@ -109,6 +111,8 @@
       <WeeklyReportPage />
     {:else if currentPage === 'collection'}
       <CollectionPage />
+    {:else if currentPage === 'collection-map'}
+      <CollectionMapPage />
     {:else if currentPage === 'achievements'}
       <AchievementsPage />
     {:else if currentPage === 'review'}
