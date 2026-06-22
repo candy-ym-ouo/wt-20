@@ -19,7 +19,8 @@ const STORAGE_KEYS = {
   SPENT_ACHIEVEMENT_POINTS: 'cyber_divination_spent_points',
   WEEKLY_REPORTS: 'cyber_divination_weekly_reports',
   HIDDEN_EVENTS_LOG: 'cyber_divination_hidden_events_log',
-  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history'
+  MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
+  QUESTION_DRIVEN_HISTORY: 'cyber_divination_question_driven_history'
 }
 
 function safeGet(key, defaultValue) {
@@ -164,7 +165,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 5,
+      version: 6,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -184,7 +185,8 @@ export const Storage = {
       spentAchievementPoints: this.getSpentAchievementPoints(),
       multiSpreadHistory: this.getMultiSpreadHistory(),
       weeklyReports: this.getWeeklyReports(),
-      hiddenEventsLog: this.getHiddenEventsLog()
+      hiddenEventsLog: this.getHiddenEventsLog(),
+      questionDrivenHistory: this.getQuestionDrivenHistory()
     }
   },
 
@@ -212,6 +214,7 @@ export const Storage = {
       if (data.multiSpreadHistory) safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, data.multiSpreadHistory)
       if (data.weeklyReports) safeSet(STORAGE_KEYS.WEEKLY_REPORTS, data.weeklyReports)
       if (data.hiddenEventsLog) safeSet(STORAGE_KEYS.HIDDEN_EVENTS_LOG, data.hiddenEventsLog)
+      if (data.questionDrivenHistory) safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, data.questionDrivenHistory)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -333,6 +336,43 @@ export const Storage = {
 
   clearMultiSpreadHistory() {
     safeSet(STORAGE_KEYS.MULTI_SPREAD_HISTORY, [])
+  },
+
+  getQuestionDrivenHistory() {
+    return safeGet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, [])
+  },
+
+  addQuestionDrivenRecord(record) {
+    const history = this.getQuestionDrivenHistory()
+    history.unshift({
+      ...record,
+      id: `qd_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 100) {
+      history.splice(100)
+    }
+    safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, history)
+    return history
+  },
+
+  updateQuestionDrivenRecordInterpretation(recordId, interpretation) {
+    const history = this.getQuestionDrivenHistory()
+    const idx = history.findIndex(r => r.id === recordId)
+    if (idx >= 0) {
+      history[idx] = {
+        ...history[idx],
+        userInterpretation: interpretation,
+        updatedAt: Date.now()
+      }
+      safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, history)
+      return true
+    }
+    return false
+  },
+
+  clearQuestionDrivenHistory() {
+    safeSet(STORAGE_KEYS.QUESTION_DRIVEN_HISTORY, [])
   },
 
   getDecks() {

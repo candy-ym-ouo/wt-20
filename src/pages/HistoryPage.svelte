@@ -15,12 +15,16 @@
   let dailyHistory = []
   let themeHistory = []
   let spreadHistory = []
+  let qdHistory = []
   let selectedRecord = null
   let selectedCustomTitle = null
   let selectedSpreadConfig = null
   let showDetail = false
   let showShare = false
   let currentShareData = null
+  let currentQuestionContext = null
+  let currentRecordId = null
+  let currentInterpretation = null
 
   function refresh() {
     const raw = Storage.getDrawHistory()
@@ -62,6 +66,15 @@
     spreadHistory = spreadRaw.map(record => ({
       ...record,
       _spread: MULTI_SPREAD_CONFIG[record.spreadId],
+      _cards: record.cards.map(c => ({
+        ...c,
+        _card: getCardById(c.cardId)
+      }))
+    }))
+
+    const qdRaw = Storage.getQuestionDrivenHistory()
+    qdHistory = qdRaw.map(record => ({
+      ...record,
       _cards: record.cards.map(c => ({
         ...c,
         _card: getCardById(c.cardId)
@@ -143,6 +156,9 @@
     selectedRecord = null
     selectedCustomTitle = null
     selectedSpreadConfig = null
+    currentQuestionContext = null
+    currentRecordId = null
+    currentInterpretation = null
   }
 
   function clearHistory() {
@@ -164,6 +180,11 @@
     } else if (activeTab === 'spread') {
       if (confirm('确定要清空所有牌阵历史记录吗？此操作不可撤销。')) {
         Storage.clearMultiSpreadHistory()
+        refresh()
+      }
+    } else if (activeTab === 'question-driven') {
+      if (confirm('确定要清空所有问题占卜历史记录吗？此操作不可撤销。')) {
+        Storage.clearQuestionDrivenHistory()
         refresh()
       }
     }
@@ -260,6 +281,49 @@
     window.dispatchEvent(event)
   }
 
+  function goToQuestionDriven() {
+    const event = new CustomEvent('navigate', { detail: 'question-driven' })
+    window.dispatchEvent(event)
+  }
+
+  function openQDRecord(record) {
+    const spreadMeta = record.spreadMeta || {}
+    selectedCustomTitle = `◆ ${spreadMeta.icon || '🎴'} ${spreadMeta.name || '问题占卜'} ◆`
+    currentRecordId = record.id
+    currentInterpretation = record.userInterpretation || null
+
+    if (spreadMeta.type === 'multi-spread' && spreadMeta.spreadId) {
+      selectedSpreadConfig = MULTI_SPREAD_CONFIG[spreadMeta.spreadId] || null
+    } else {
+      selectedSpreadConfig = null
+    }
+
+    currentQuestionContext = {
+      question: record.questionContext?.question,
+      context: record.questionContext?.context,
+      urgency: record.questionContext?.urgency,
+      category: record.questionContext?.categoryAnalysis?.category
+    }
+
+    selectedRecord = record._cards.map(c => {
+      const card = getCardById(c.cardId)
+      return {
+        card,
+        isReversed: c.isReversed,
+        position: c.position,
+        positionId: c.positionId,
+        positionDesc: c.positionDesc,
+        reading: {
+          title: c.title,
+          meaning: c.meaning,
+          advice: c.advice,
+          fortune: c.fortune
+        }
+      }
+    })
+    showDetail = true
+  }
+
   onMount(() => {
     refresh()
   })
@@ -270,7 +334,7 @@
   <button class="btn icon-btn" on:click={goToReview} title="数据回顾">
     📊
   </button>
-  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0) || (activeTab === 'spread' && spreadHistory.length > 0)}
+  {#if (activeTab === 'divination' && history.length > 0) || (activeTab === 'daily' && dailyHistory.length > 0) || (activeTab === 'theme' && themeHistory.length > 0) || (activeTab === 'spread' && spreadHistory.length > 0) || (activeTab === 'question-driven' && qdHistory.length > 0)}
     <button class="btn icon-btn" on:click={clearHistory} title="清空历史">
       🗑️
     </button>
@@ -280,6 +344,9 @@
 <div class="tabs">
   <div class="tab {activeTab === 'divination' ? 'active' : ''}" on:click={() => (activeTab = 'divination')}>
     🎴 占卜记录
+  </div>
+  <div class="tab {activeTab === 'question-driven' ? 'active' : ''}" on:click={() => (activeTab = 'question-driven')}>
+    💬 问题占卜
   </div>
   <div class="tab {activeTab === 'spread' ? 'active' : ''}" on:click={() => (activeTab = 'spread')}>
     ✚ 牌阵占卜
@@ -331,6 +398,76 @@
             <button
               class="history-share-btn"
               on:click|stopPropagation={() => openShareFromRecord(record, 'divination')}
+              title="分享"
+            >
+              📤
+            </button>
+            <div class="history-time mono">{formatTime(record.timestamp)}</div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'question-driven'}
+  {#if qdHistory.length === 0}
+    <div class="empty-state">
+      <div class="empty-state-icon">💬</div>
+      <div class="empty-state-text">暂无问题占卜记录<br/>
+        <button class="btn btn-primary" style="margin-top: 16px; font-size: 12px;" on:click={goToQuestionDriven}>
+          💬 去进行问题驱动占卜
+        </button>
+      </div>
+    </div>
+  {:else}
+    <div class="history-list">
+      {#each qdHistory as record}
+        <div
+          class="history-item qd-item"
+          style="--theme-color: {record.spreadMeta?.color || '#00e5ff'}; --theme-glow: {(record.spreadMeta?.color || '#00e5ff') + '33'}"
+          on:click={() => openQDRecord(record)}
+        >
+          <div class="history-symbol" style="color: var(--theme-color)">
+            {record.questionContext?.categoryAnalysis?.category?.icon || record.spreadMeta?.icon || '💬'}
+          </div>
+          <div class="history-info">
+            <div class="history-card-name">
+              {record.spreadMeta?.name || '问题占卜'}
+            </div>
+            <div class="history-meta">
+              {#if record.questionContext?.urgency}
+                <span
+                  class="urgency-badge"
+                  style="background: {record.questionContext.urgency.color + '33'}; color: {record.questionContext.urgency.color}"
+                >
+                  {record.questionContext.urgency.icon} {record.questionContext.urgency.name}
+                </span>
+              {/if}
+              <span class="badge" style="background: var(--theme-glow); color: var(--theme-color)">
+                {record._cards.length}张牌
+              </span>
+              {#if record.userInterpretation}
+                <span class="badge badge-interpreted" title="已写解读笔记">📖 已解读</span>
+              {/if}
+            </div>
+            {#if record.questionContext?.question}
+              <div class="question-preview">
+                "{record.questionContext.question}"
+              </div>
+            {:else if record.questionContext?.context}
+              <div class="question-preview">
+                "{record.questionContext.context.slice(0, 50)}{record.questionContext.context.length > 50 ? '...' : ''}"
+              </div>
+            {/if}
+            <div class="history-cards">
+              {#each record._cards as c, i}
+                <span title="{c._card?.name || '未知'}" style="margin-right: 4px;">{c._card?.symbol || '?'}</span>
+              {/each}
+            </div>
+          </div>
+          <div class="history-actions">
+            <button
+              class="history-share-btn"
+              on:click|stopPropagation={() => openShareFromRecord(record, 'question-driven')}
               title="分享"
             >
               📤
@@ -490,6 +627,10 @@
     spreadType={selectedSpreadConfig ? 'multi-spread' : (selectedCustomTitle ? 'theme' : (selectedRecord.length === 1 ? 'single' : 'three'))}
     spreadConfig={selectedSpreadConfig}
     customTitle={selectedCustomTitle}
+    questionContext={currentQuestionContext}
+    recordId={currentRecordId}
+    recordType="question-driven"
+    existingInterpretation={currentInterpretation}
     onClose={closeDetail}
     onDrawAgain={closeDetail}
   />
@@ -529,6 +670,36 @@
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.5px;
+  }
+  .qd-item {
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    border-color: var(--theme-glow);
+  }
+  .qd-item:hover {
+    border-color: var(--theme-color);
+    background: linear-gradient(135deg, var(--theme-glow), var(--bg-card));
+    box-shadow: 0 0 15px var(--theme-glow);
+  }
+  .urgency-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .badge-interpreted {
+    background: rgba(105, 240, 174, 0.2);
+    color: #69f0ae;
+    font-size: 10px;
+  }
+  .history-item .question-preview {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-style: italic;
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .daily-item {
     background: linear-gradient(135deg, rgba(255, 213, 79, 0.05), var(--bg-card));

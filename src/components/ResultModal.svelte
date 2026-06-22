@@ -2,6 +2,7 @@
   import CardDisplay from './CardDisplay.svelte'
   import { RARITY_CONFIG, THEME_CONFIG } from '../data/constants.js'
   import ShareModal from './ShareModal.svelte'
+  import { Storage } from '../utils/storage.js'
 
   export let results
   export let spreadType
@@ -15,6 +16,9 @@
   export let timestamp = Date.now()
   export let recordType = null
   export let consecutiveDays = null
+  export let questionContext = null
+  export let recordId = null
+  export let existingInterpretation = null
 
   $: {
     if (customTitle) {
@@ -30,6 +34,10 @@
 
   let modalTitle = ''
   let showShareModal = false
+  let showInterpretation = recordType === 'question-driven' || !!existingInterpretation
+  let userInterpretation = existingInterpretation || ''
+  let interpretationSaved = !!existingInterpretation
+  let isSavingInterpretation = false
 
   function hasPosition(result) {
     return !!result.position
@@ -53,6 +61,21 @@
     onClose()
   }
 
+  async function saveInterpretation() {
+    if (isSavingInterpretation) return
+    if (!recordId || !userInterpretation.trim()) return
+
+    isSavingInterpretation = true
+    await new Promise(r => setTimeout(r, 300))
+
+    const success = Storage.updateQuestionDrivenRecordInterpretation(recordId, userInterpretation.trim())
+    if (success) {
+      interpretationSaved = true
+      setTimeout(() => { interpretationSaved = false }, 2000)
+    }
+    isSavingInterpretation = false
+  }
+
   $: derivedSpreadName = spreadName || (() => {
     if (spreadType === 'single' || results.length === 1) return '单张占卜'
     if (spreadType === 'three') return '三牌阵'
@@ -67,6 +90,48 @@
 <div class="modal-overlay" on:click|self={onClose}>
   <div class="modal-content">
     <h2 class="modal-title">{modalTitle}</h2>
+
+    {#if questionContext}
+      <div class="question-context-block">
+        <div class="context-header">
+          <span class="context-icon">📝</span>
+          <span class="context-title">问题背景</span>
+          {#if questionContext.category}
+            <span
+              class="context-category"
+              style="color: {questionContext.category.color}"
+            >
+              {questionContext.category.icon} {questionContext.category.name}
+            </span>
+          {/if}
+        </div>
+        {#if questionContext.question}
+          <div class="context-row">
+            <span class="context-label">核心问题：</span>
+            <span class="context-text">{questionContext.question}</span>
+          </div>
+        {/if}
+        {#if questionContext.context}
+          <div class="context-row">
+            <span class="context-label">背景描述：</span>
+            <span class="context-text">{questionContext.context}</span>
+          </div>
+        {/if}
+        {#if questionContext.urgency}
+          <div class="context-row">
+            <span class="context-label">紧急程度：</span>
+            <span class="context-text" style="color: {questionContext.urgency.color}">
+              {questionContext.urgency.icon} {questionContext.urgency.name}
+            </span>
+          </div>
+        {/if}
+      </div>
+    {:else if question}
+      <div class="question-block">
+        <span class="question-icon">❓</span>
+        <span class="question-text">{question}</span>
+      </div>
+    {/if}
 
     {#if isMultiSpread}
       <div
@@ -139,6 +204,38 @@
       {/each}
     </div>
 
+    {#if showInterpretation}
+      <div class="interpretation-section">
+        <div class="interpretation-header">
+          <span class="interpretation-icon">📖</span>
+          <span class="interpretation-title">我的解读笔记</span>
+          <span class="interpretation-hint">沉淀你的思考，下次回顾更有价值</span>
+        </div>
+        <textarea
+          class="interpretation-input"
+          bind:value={userInterpretation}
+          placeholder="写下你对这次占卜的个人理解、感受、行动方案..."
+          maxlength="500"
+        />
+        <div class="interpretation-footer">
+          <span class="char-count">{userInterpretation.length}/500</span>
+          <button
+            class="btn btn-primary interpretation-save-btn"
+            on:click={saveInterpretation}
+            disabled={!userInterpretation.trim() || isSavingInterpretation || !recordId}
+          >
+            {#if interpretationSaved}
+              ✅ 已保存
+            {:else if isSavingInterpretation}
+              <span class="loading">保存中...</span>
+            {:else}
+              💾 保存解读笔记
+            {/if}
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <div class="action-row-secondary">
       <button class="btn btn-block btn-yellow" on:click={openShare}>
         📤 分享结果
@@ -170,6 +267,179 @@
 {/if}
 
 <style>
+  .question-context-block {
+    background: linear-gradient(135deg, rgba(224, 64, 251, 0.08), rgba(0, 229, 255, 0.05));
+    border: 1px solid var(--accent-magenta);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+
+  .context-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(224, 64, 251, 0.3);
+  }
+
+  .context-icon {
+    font-size: 18px;
+  }
+
+  .context-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent-magenta);
+    letter-spacing: 1px;
+    flex: 1;
+  }
+
+  .context-category {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+    border: 1px solid currentColor;
+  }
+
+  .context-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .context-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .context-label {
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .context-text {
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .question-block {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(224, 64, 251, 0.08);
+    border-left: 3px solid var(--accent-magenta);
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 16px;
+  }
+
+  .question-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .question-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .interpretation-section {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.06), rgba(105, 240, 174, 0.04));
+    border: 1px solid var(--accent-cyan);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 20px;
+    margin-bottom: 16px;
+  }
+
+  .interpretation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .interpretation-icon {
+    font-size: 18px;
+  }
+
+  .interpretation-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+  }
+
+  .interpretation-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-left: auto;
+    font-family: var(--font-mono);
+  }
+
+  .interpretation-input {
+    width: 100%;
+    min-height: 90px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 13px;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .interpretation-input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+  }
+
+  .interpretation-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    gap: 10px;
+  }
+
+  .char-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .interpretation-save-btn {
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    min-width: 140px;
+  }
+
+  .interpretation-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .loading {
+    display: inline-block;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
   .reading-position-label {
     font-size: 12px;
     letter-spacing: 2px;

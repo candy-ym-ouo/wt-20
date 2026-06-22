@@ -269,6 +269,37 @@ export function buildShareDataFromRecord(record, recordType) {
       spreadId: record.spreadId,
       spreadConfig
     }
+  } else if (recordType === 'question-driven') {
+    const results = (record._cards || record.cards || []).map(c => {
+      const card = c._card || getCardById(c.cardId)
+      return {
+        card,
+        cardId: c.cardId,
+        isReversed: c.isReversed,
+        position: c.position,
+        positionId: c.positionId,
+        reading: c.reading || {
+          title: c.title,
+          meaning: c.meaning,
+          advice: c.advice,
+          fortune: c.fortune
+        }
+      }
+    })
+    const spreadMeta = record.spreadMeta || {}
+    const questionContext = record.questionContext || {}
+    return {
+      id: record.id,
+      results,
+      theme: null,
+      spreadName: spreadMeta.name || `${results.length}牌阵`,
+      question: questionContext.question || null,
+      timestamp: record.timestamp || Date.now(),
+      recordType: 'question-driven',
+      userInterpretation: record.userInterpretation,
+      questionContext,
+      spreadConfig: spreadMeta
+    }
   } else {
     if (record.spreadType === 'single') {
       const card = getCardById(record.cardId)
@@ -343,8 +374,9 @@ export function getAllRecordsForReview() {
   const dailyHistory = Storage.getDailyFortuneHistory().map(r => ({ ...r, _type: 'daily' }))
   const themeHistory = Storage.getThemeDivinationHistory().map(r => ({ ...r, _type: 'theme' }))
   const spreadHistory = Storage.getMultiSpreadHistory().map(r => ({ ...r, _type: 'spread' }))
+  const qdHistory = (Storage.getQuestionDrivenHistory?.() || []).map(r => ({ ...r, _type: 'question-driven' }))
 
-  const all = [...drawHistory, ...dailyHistory, ...themeHistory, ...spreadHistory].sort((a, b) => {
+  const all = [...drawHistory, ...dailyHistory, ...themeHistory, ...spreadHistory, ...qdHistory].sort((a, b) => {
     return (b.timestamp || 0) - (a.timestamp || 0)
   })
 
@@ -380,6 +412,7 @@ export function generateReviewSummary(records) {
   const themeCount = records.filter(r => r._type === 'theme').length
   const divinationCount = records.filter(r => r._type === 'divination').length
   const spreadCount = records.filter(r => r._type === 'spread').length
+  const qdCount = records.filter(r => r._type === 'question-driven').length
 
   const cardFrequency = {}
   const themeBreakdown = {}
@@ -395,6 +428,10 @@ export function generateReviewSummary(records) {
       })
     } else if (record._type === 'spread') {
       record.cards.forEach(c => {
+        cardFrequency[c.cardId] = (cardFrequency[c.cardId] || 0) + 1
+      })
+    } else if (record._type === 'question-driven') {
+      (record._cards || record.cards || []).forEach(c => {
         cardFrequency[c.cardId] = (cardFrequency[c.cardId] || 0) + 1
       })
     } else {
@@ -426,6 +463,7 @@ export function generateReviewSummary(records) {
     themeCount,
     divinationCount,
     spreadCount,
+    questionDrivenCount: qdCount,
     mostCommonCards,
     cardFrequency,
     themeBreakdown,

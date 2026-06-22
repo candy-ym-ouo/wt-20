@@ -11,6 +11,7 @@
   import ArchivePage from './pages/ArchivePage.svelte'
   import DailyFortunePage from './pages/DailyFortunePage.svelte'
   import DivinationPage from './pages/DivinationPage.svelte'
+  import QuestionDrivenPage from './pages/QuestionDrivenPage.svelte'
   import AchievementsPage from './pages/AchievementsPage.svelte'
   import ReviewPage from './pages/ReviewPage.svelte'
   import WeeklyReportPage from './pages/WeeklyReportPage.svelte'
@@ -18,20 +19,21 @@
   import MysteriousVisitorModal from './components/MysteriousVisitorModal.svelte'
   import AchievementNotify from './components/AchievementNotify.svelte'
 
-  let currentPage = 'divination'
+  let currentPage = 'question-driven'
   let historyInitialTab = 'divination'
   let hiddenEvent = null
   let visitorModalOpen = false
   let glitchClass = ''
 
   const PAGES = [
-    { id: 'divination', icon: '🔮', label: '占卜' },
+    { id: 'question-driven', icon: '💬', label: '问题占卜' },
+    { id: 'divination', icon: '🔮', label: '主题占卜' },
     { id: 'daily', icon: '🎐', label: '每日签' },
     { id: 'draw', icon: '🎴', label: '抽卡' },
     { id: 'weekly', icon: '📊', label: '周报' },
     { id: 'collection', icon: '📚', label: '收藏' },
     { id: 'achievements', icon: '🏆', label: '成就' },
-    { id: 'review', icon: '�', label: '回顾' },
+    { id: 'review', icon: '📈', label: '回顾' },
     { id: 'history', icon: '📜', label: '历史' },
     { id: 'archive', icon: '💾', label: '存档' }
   ]
@@ -95,7 +97,9 @@
 
 <div id="app-container" class="{glitchClass}">
   <div class="page-container">
-    {#if currentPage === 'divination'}
+    {#if currentPage === 'question-driven'}
+      <QuestionDrivenPage />
+    {:else if currentPage === 'divination'}
       <DivinationPage />
     {:else if currentPage === 'daily'}
       <DailyFortunePage />
