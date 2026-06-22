@@ -23,7 +23,8 @@ const STORAGE_KEYS = {
   OWNED_SHOP_ITEMS: 'cyber_divination_owned_shop_items',
   SHOP_PURCHASE_HISTORY: 'cyber_divination_shop_purchase_history',
   EQUIPPED_SHOP_ITEMS: 'cyber_divination_equipped_shop_items',
-  ACHIEVEMENT_POINTS_SPENT: 'cyber_divination_achievement_points_spent'
+  ACHIEVEMENT_POINTS_SPENT: 'cyber_divination_achievement_points_spent',
+  BACKUP_AUTO_SAVES: 'cyber_divination_backup_auto_saves'
 }
 
 function safeGet(key, defaultValue) {
@@ -705,6 +706,15 @@ export const Storage = {
     const currentSpent = this.getSpentAchievementPoints()
     safeSet(STORAGE_KEYS.ACHIEVEMENT_POINTS_SPENT, currentSpent + amount)
     return true
+  },
+
+  getAutoBackups() {
+    return safeGet(STORAGE_KEYS.BACKUP_AUTO_SAVES, [])
+  },
+
+  saveAutoBackups(backups) {
+    safeSet(STORAGE_KEYS.BACKUP_AUTO_SAVES, backups)
+    return backups
   },
 
   resetAll() {
