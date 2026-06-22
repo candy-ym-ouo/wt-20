@@ -3,6 +3,7 @@
   import { RARITY_CONFIG, CATEGORY_CONFIG } from '../data/constants.js'
   import { CARDS } from '../data/cards.js'
   import { getEncyclopediaEntry, hasEncyclopediaEntry } from '../data/encyclopedia.js'
+  import { detectHiddenCombos, RELATION_CONFIG } from '../utils/relationSystem.js'
 
   export let card
   export let onClose
@@ -12,6 +13,7 @@
   $: encyclopedia = getEncyclopediaEntry(card.id)
   $: hasFull = hasEncyclopediaEntry(card.id)
   $: relatedCardsData = encyclopedia?.keywordRelations || null
+  $: cardCombos = detectHiddenCombos().filter(c => c.cards.some(cc => cc.id === card.id))
 
   const READING_SECTIONS = [
     { key: 'career', label: '事业', icon: '💼', color: '#00e5ff' },
@@ -243,6 +245,41 @@
               <span class="mono">×转化</span>
               <span class="legend-tip">质变进化，境界提升</span>
             </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if cardCombos.length > 0}
+        <div class="section-wrap">
+          <div class="section-title combo-title">
+            <span class="section-icon">🔮</span>
+            隐藏组合触发提示 · Hidden Combo
+          </div>
+          <div class="combo-hint-list">
+            {#each cardCombos as combo}
+              <div class="combo-hint-card {combo.unlocked ? 'unlocked' : 'locked'}" style="--tc: {RELATION_CONFIG[combo.type]?.color || '#888'};">
+                <div class="combo-hint-badge">
+                  <span>{RELATION_CONFIG[combo.type]?.icon}</span>
+                  <span class="mono" style="font-size: 10px;">{RELATION_CONFIG[combo.type]?.label}</span>
+                </div>
+                <div class="combo-hint-title mono">{combo.title}</div>
+                <div class="combo-hint-desc">{combo.description}</div>
+                <div class="combo-hint-tip">
+                  <span>💡</span>
+                  <span>{combo.hint}</span>
+                </div>
+                {#if !combo.unlocked}
+                  <div class="combo-hint-progress">
+                    <div class="combo-prog-bar">
+                      <div class="combo-prog-fill" style="width: {(combo.progress || 0.5) * 100}%;"></div>
+                    </div>
+                    <span class="mono" style="font-size: 10px; color: var(--text-dim);">
+                      解锁进度 {Math.round((combo.progress || 0.5) * 100)}%
+                    </span>
+                  </div>
+                {/if}
+              </div>
+            {/each}
           </div>
         </div>
       {/if}
@@ -1021,5 +1058,95 @@
   :global(.encyclopedia-content::-webkit-scrollbar-thumb) {
     background: var(--accent-magenta);
     border-radius: 3px;
+  }
+
+  .combo-title {
+    background: linear-gradient(90deg, rgba(224, 64, 251, 0.12), transparent);
+    color: #e040fb;
+    border-left: 3px solid #e040fb;
+  }
+
+  .combo-hint-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .combo-hint-card {
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid color-mix(in srgb, var(--tc) 25%, transparent);
+    border-radius: 10px;
+    transition: all 0.2s;
+  }
+
+  .combo-hint-card.unlocked {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--tc) 5%, transparent), rgba(255, 255, 255, 0.02));
+  }
+
+  .combo-hint-card.locked {
+    opacity: 0.75;
+    filter: saturate(0.6);
+  }
+
+  .combo-hint-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    background: color-mix(in srgb, var(--tc) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent);
+    border-radius: 10px;
+    color: var(--tc);
+    margin-bottom: 8px;
+  }
+
+  .combo-hint-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .combo-hint-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+  }
+
+  .combo-hint-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 10px;
+    background: rgba(255, 213, 79, 0.06);
+    border-left: 2px solid var(--accent-yellow);
+    border-radius: 0 4px 4px 0;
+    font-size: 11px;
+    color: var(--accent-yellow);
+    line-height: 1.5;
+  }
+
+  .combo-hint-progress {
+    margin-top: 10px;
+  }
+
+  .combo-prog-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+
+  .combo-prog-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+    transition: width 0.3s;
+    opacity: 0.7;
   }
 </style>

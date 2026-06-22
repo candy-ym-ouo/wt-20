@@ -8,6 +8,15 @@ const STORAGE_KEYS = {
   DAILY_FORTUNE_HISTORY: 'cyber_divination_daily_fortune_history',
   THEME_DIVINATION_HISTORY: 'cyber_divination_theme_history',
   MULTI_SPREAD_HISTORY: 'cyber_divination_multi_spread_history',
+  DECKS: 'cyber_divination_decks',
+  THEME_ALBUMS: 'cyber_divination_theme_albums',
+  SHARE_HISTORY: 'cyber_divination_share_history',
+  ONBOARDING: 'cyber_divination_onboarding',
+  STORY_PROGRESS: 'cyber_divination_story_progress',
+  STORY_HISTORY: 'cyber_divination_story_history',
+  TEMP_EFFECTS: 'cyber_divination_temp_effects',
+  PERMANENT_EFFECTS: 'cyber_divination_permanent_effects',
+  WISH_LIST: 'cyber_divination_wish_list',
   SEASON_DATA: 'cyber_divination_season_data',
   SEASON_TASKS: 'cyber_divination_season_tasks',
   SEASON_HIDDEN_EVENTS: 'cyber_divination_season_hidden_events'
@@ -155,7 +164,7 @@ export const Storage = {
 
   exportAll() {
     return {
-      version: 3,
+      version: 4,
       exportDate: Date.now(),
       drawHistory: this.getDrawHistory(),
       dailyFortuneHistory: this.getDailyFortuneHistory(),
@@ -164,7 +173,19 @@ export const Storage = {
       collection: this.getCollection(),
       achievements: this.getAchievements(),
       stats: this.getStats(),
-      settings: this.getSettings()
+      settings: this.getSettings(),
+      wishList: this.getWishList(),
+      onboarding: this.getOnboarding(),
+      storyProgress: this.getStoryProgress(),
+      storyHistory: this.getStoryHistory(),
+      decks: this.getDecks(),
+      themeAlbums: this.getThemeAlbums(),
+      shareHistory: this.getShareHistory(),
+      tempEffects: this.getTempEffects(),
+      permanentEffects: this.getPermanentEffects(),
+      seasonData: safeGet(STORAGE_KEYS.SEASON_DATA, {}),
+      seasonTasks: safeGet(STORAGE_KEYS.SEASON_TASKS, {}),
+      seasonHiddenEvents: safeGet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, {})
     }
   },
 
@@ -179,6 +200,18 @@ export const Storage = {
       if (data.achievements) safeSet(STORAGE_KEYS.ACHIEVEMENTS, data.achievements)
       if (data.stats) safeSet(STORAGE_KEYS.STATS, data.stats)
       if (data.settings) safeSet(STORAGE_KEYS.SETTINGS, data.settings)
+      if (data.wishList) safeSet(STORAGE_KEYS.WISH_LIST, data.wishList)
+      if (data.onboarding) safeSet(STORAGE_KEYS.ONBOARDING, data.onboarding)
+      if (data.storyProgress) safeSet(STORAGE_KEYS.STORY_PROGRESS, data.storyProgress)
+      if (data.storyHistory) safeSet(STORAGE_KEYS.STORY_HISTORY, data.storyHistory)
+      if (data.decks) safeSet(STORAGE_KEYS.DECKS, data.decks)
+      if (data.themeAlbums) safeSet(STORAGE_KEYS.THEME_ALBUMS, data.themeAlbums)
+      if (data.shareHistory) safeSet(STORAGE_KEYS.SHARE_HISTORY, data.shareHistory)
+      if (data.tempEffects) safeSet(STORAGE_KEYS.TEMP_EFFECTS, data.tempEffects)
+      if (data.permanentEffects) safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, data.permanentEffects)
+      if (data.seasonData) safeSet(STORAGE_KEYS.SEASON_DATA, data.seasonData)
+      if (data.seasonTasks) safeSet(STORAGE_KEYS.SEASON_TASKS, data.seasonTasks)
+      if (data.seasonHiddenEvents) safeSet(STORAGE_KEYS.SEASON_HIDDEN_EVENTS, data.seasonHiddenEvents)
       return true
     } catch (e) {
       console.error('Import error:', e)
@@ -399,6 +432,194 @@ export const Storage = {
       return true
     }
     return false
+  },
+
+  getWishList() {
+    return safeGet(STORAGE_KEYS.WISH_LIST, [])
+  },
+
+  addWish(wishData) {
+    const wishes = this.getWishList()
+    const wish = {
+      id: `wish_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      status: 'active',
+      linkedDraws: [],
+      reviews: [],
+      ...wishData
+    }
+    wishes.unshift(wish)
+    if (wishes.length > 100) wishes.splice(100)
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wish
+  },
+
+  updateWish(wishId, updates) {
+    const wishes = this.getWishList()
+    const idx = wishes.findIndex(w => w.id === wishId)
+    if (idx === -1) return null
+    wishes[idx] = { ...wishes[idx], ...updates, updatedAt: Date.now() }
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wishes[idx]
+  },
+
+  deleteWish(wishId) {
+    const wishes = this.getWishList()
+    const filtered = wishes.filter(w => w.id !== wishId)
+    safeSet(STORAGE_KEYS.WISH_LIST, filtered)
+    return filtered
+  },
+
+  getWishById(wishId) {
+    const wishes = this.getWishList()
+    return wishes.find(w => w.id === wishId) || null
+  },
+
+  linkDrawToWish(wishId, drawRecord) {
+    const wishes = this.getWishList()
+    const idx = wishes.findIndex(w => w.id === wishId)
+    if (idx === -1) return null
+    if (!wishes[idx].linkedDraws) wishes[idx].linkedDraws = []
+    wishes[idx].linkedDraws.push({ ...drawRecord, linkedAt: Date.now() })
+    wishes[idx].updatedAt = Date.now()
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wishes[idx]
+  },
+
+  addReviewToWish(wishId, review) {
+    const wishes = this.getWishList()
+    const idx = wishes.findIndex(w => w.id === wishId)
+    if (idx === -1) return null
+    if (!wishes[idx].reviews) wishes[idx].reviews = []
+    wishes[idx].reviews.push({ ...review, createdAt: Date.now() })
+    wishes[idx].updatedAt = Date.now()
+    safeSet(STORAGE_KEYS.WISH_LIST, wishes)
+    return wishes[idx]
+  },
+
+  getOnboarding() {
+    return safeGet(STORAGE_KEYS.ONBOARDING, {
+      startedAt: null,
+      completed: false,
+      completedAt: null,
+      currentStep: 0,
+      firstDrawHiddenEvent: null,
+      worldLoreViewed: false
+    })
+  },
+
+  updateOnboarding(updates) {
+    const onboarding = this.getOnboarding()
+    const updated = { ...onboarding, ...updates }
+    safeSet(STORAGE_KEYS.ONBOARDING, updated)
+    return updated
+  },
+
+  completeOnboarding() {
+    const updated = {
+      startedAt: this.getOnboarding().startedAt || Date.now(),
+      completed: true,
+      completedAt: Date.now(),
+      currentStep: TOTAL_ONBOARDING_STEPS || 5,
+      firstDrawHiddenEvent: this.getOnboarding().firstDrawHiddenEvent,
+      worldLoreViewed: true
+    }
+    safeSet(STORAGE_KEYS.ONBOARDING, updated)
+    return updated
+  },
+
+  resetOnboarding() {
+    safeSet(STORAGE_KEYS.ONBOARDING, {
+      startedAt: null,
+      completed: false,
+      completedAt: null,
+      currentStep: 0,
+      firstDrawHiddenEvent: null,
+      worldLoreViewed: false
+    })
+  },
+
+  getStoryProgress() {
+    return safeGet(STORAGE_KEYS.STORY_PROGRESS, {})
+  },
+
+  updateStoryProgress(storyId, updates) {
+    const progress = this.getStoryProgress()
+    if (!progress[storyId]) {
+      progress[storyId] = {
+        storyId,
+        status: 'in_progress',
+        startedAt: Date.now(),
+        currentChapter: null,
+        choices: [],
+        completedAt: null
+      }
+    }
+    progress[storyId] = { ...progress[storyId], ...updates }
+    safeSet(STORAGE_KEYS.STORY_PROGRESS, progress)
+    return progress[storyId]
+  },
+
+  getStoryHistory() {
+    return safeGet(STORAGE_KEYS.STORY_HISTORY, [])
+  },
+
+  addStoryHistoryRecord(record) {
+    const history = this.getStoryHistory()
+    history.unshift({
+      ...record,
+      id: `story_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now()
+    })
+    if (history.length > 200) history.splice(200)
+    safeSet(STORAGE_KEYS.STORY_HISTORY, history)
+    return history
+  },
+
+  getDecks() {
+    return safeGet(STORAGE_KEYS.DECKS, [])
+  },
+
+  saveDecks(decks) {
+    safeSet(STORAGE_KEYS.DECKS, decks)
+    return decks
+  },
+
+  getThemeAlbums() {
+    return safeGet(STORAGE_KEYS.THEME_ALBUMS, {})
+  },
+
+  saveThemeAlbums(albums) {
+    safeSet(STORAGE_KEYS.THEME_ALBUMS, albums)
+    return albums
+  },
+
+  getShareHistory() {
+    return safeGet(STORAGE_KEYS.SHARE_HISTORY, [])
+  },
+
+  setShareHistory(history) {
+    safeSet(STORAGE_KEYS.SHARE_HISTORY, history)
+    return history
+  },
+
+  getTempEffects() {
+    return safeGet(STORAGE_KEYS.TEMP_EFFECTS, {})
+  },
+
+  setTempEffects(effects) {
+    safeSet(STORAGE_KEYS.TEMP_EFFECTS, effects)
+    return effects
+  },
+
+  getPermanentEffects() {
+    return safeGet(STORAGE_KEYS.PERMANENT_EFFECTS, {})
+  },
+
+  setPermanentEffects(effects) {
+    safeSet(STORAGE_KEYS.PERMANENT_EFFECTS, effects)
+    return effects
   },
 
   resetAll() {

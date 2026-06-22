@@ -1,10 +1,16 @@
 <script>
   import CardDisplay from './CardDisplay.svelte'
   import { RARITY_CONFIG, CATEGORY_CONFIG } from '../data/constants.js'
+  import { getCardRelations, RELATION_CONFIG, RELATION_TYPES } from '../utils/relationSystem.js'
 
   export let card
   export let collectionData
   export let onClose
+
+  $: cardRelations = getCardRelations(card.id)
+  $: hasThematicRelations = cardRelations.relations.thematic.length > 0
+  $: hasCooccurrence = cardRelations.relations.cooccurrence.length > 0
+  $: hasAnyRelation = cardRelations.edgeCount > 0
 
   function formatDate(timestamp) {
     if (!timestamp) return '未知'
@@ -15,6 +21,11 @@
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  function goToRelationGraph() {
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'relation-graph' } }))
+    onClose()
   }
 </script>
 
@@ -98,6 +109,53 @@
       </div>
     {/if}
 
+    {#if hasAnyRelation}
+      <div class="section-title" style="color: var(--accent-magenta);">
+        🕸️ 主题关联 · 共现频次
+      </div>
+
+      {#if hasThematicRelations}
+        <div class="relation-sub-section">
+          <div class="relation-sub-label" style="color: {RELATION_CONFIG[RELATION_TYPES.THEMATIC].color};">
+            ≋ 主题关联
+          </div>
+          <div class="relation-tags">
+            {#each cardRelations.relations.thematic as item}
+              <span class="relation-tag thematic" title="{item.description}">
+                {item.card.symbol} {item.card.name}
+                <span class="tag-weight">{item.weight.toFixed(1)}</span>
+              </span>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if hasCooccurrence}
+        <div class="relation-sub-section">
+          <div class="relation-sub-label" style="color: {RELATION_CONFIG[RELATION_TYPES.COOCCURRENCE].color};">
+            ↔ 共现频次
+          </div>
+          <div class="relation-tags">
+            {#each cardRelations.relations.cooccurrence as item}
+              <span class="relation-tag cooccur" title="{item.description}">
+                {item.card.symbol} {item.card.name}
+                <span class="tag-weight">{item.description}</span>
+              </span>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <div class="relation-summary">
+        <span class="mono" style="color: var(--text-dim); font-size: 11px;">
+          共 {cardRelations.edgeCount} 条关联路径
+        </span>
+        <button class="btn-link" on:click={goToRelationGraph}>
+          🕸️ 查看完整关系图谱 →
+        </button>
+      </div>
+    {/if}
+
     <div class="action-row">
       <button class="btn btn-block btn-primary" on:click={onClose}>
         关闭
@@ -120,5 +178,66 @@
   .info-value {
     color: var(--text-primary);
     font-size: 13px;
+  }
+
+  .relation-sub-section {
+    margin-bottom: 12px;
+  }
+  .relation-sub-label {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .relation-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .relation-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 11px;
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .relation-tag.thematic {
+    background: rgba(255, 213, 79, 0.08);
+    border-color: rgba(255, 213, 79, 0.3);
+  }
+  .relation-tag.cooccur {
+    background: rgba(79, 195, 247, 0.08);
+    border-color: rgba(79, 195, 247, 0.3);
+  }
+  .tag-weight {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    padding: 1px 5px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+  }
+  .relation-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 8px;
+  }
+  .btn-link {
+    background: transparent;
+    border: none;
+    color: var(--accent-magenta);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    transition: color 0.2s;
+  }
+  .btn-link:hover {
+    color: var(--accent-cyan);
   }
 </style>
